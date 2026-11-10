@@ -170,3 +170,5 @@ The gazetteer build does not take time zones on trust. Natural Earth's zone fiel
 ## Licence
 
 MIT for the code and for everything written for this skill. See `LICENSE`. The gazetteer (`src/scripts/data/places.db`) includes GeoNames data under CC BY 4.0: if you pass it on, the credit above must go with it.
+
+![FIRN](/src/images/firn-01-reference-sheet.webp)
