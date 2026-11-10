@@ -1,0 +1,27 @@
+{
+  "note": "House rules for armour and spotting in FIRN's simulations. Inspired by World of Tanks: the values and the order of operations follow that game's client as it stood in November 2026 (update 2.4.1), read on 2026-11-10. They are FIRN's house rules, not a statement about the game today. For a question about the real game, check the current patch and pass the values in; anything given on the command line overrides this file. Edit freely.",
+  "house": {
+    "label": "house rules, inspired by World of Tanks as of November 2026",
+    "shells": {
+      "ap": {"name": "armour-piercing", "norm": 5.0, "ricochet": 70.0, "overmatch": 3.0, "two_cal": 1.4},
+      "apcr": {"name": "sub-calibre", "norm": 2.0, "ricochet": 70.0, "overmatch": 3.0, "two_cal": 1.4},
+      "heat": {"name": "shaped charge", "norm": 0.0, "ricochet": 85.0, "overmatch": null, "two_cal": null, "gap_loss": 5.0},
+      "he": {"name": "high explosive", "norm": 0.0, "ricochet": null, "overmatch": null, "two_cal": null}
+    },
+    "rng": 25.0,
+    "sigma": 0.33,
+    "near": 50.0,
+    "far": 500.0,
+    "spot_cap": 445.0,
+    "spot_min": 50.0,
+    "order": [
+      "the raw impact angle decides an automatic ricochet, unless the shell overmatches the plate (calibre over 3 times its thickness)",
+      "normalisation then reduces the angle; a shell over twice the plate's thickness gets normalisation x 1.4 x calibre / (2 x plate)",
+      "effective thickness = nominal / cos(normalised angle)",
+      "penetration is rolled on a bell curve, one standard deviation a third of the spread, never outside the spread",
+      "penetration is flat to 50 m, falls in a straight line through its 500 m figure and keeps falling beyond; shaped charges and high explosive lose nothing with range",
+      "a shaped charge that meets a spaced screen loses the screen's thickness, then 5 percent of what is left for every 100 mm of air behind it",
+      "spotted at: view range - (view range - 50) x concealment, never beyond 445 m, always inside 50 m"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "note": "What FIRN-01's sensors make out in a simulation. Two things are in here. The maker's rulings: which sensors he carries, that they reach as a scout's do, what silent running, his own smoke and a thin wall do to them, and what they may tell him about a person (SKILL.md section 2). And house rules: every figure, for when the brief gives none. Game mechanics only; they model no real sensor. The figures are yours to edit, and a brief that names its own outranks them.",
+  "label": "house rules, November 2026",
+  "scale": 1.0,
+  "levels": {
+    "detect": {
+      "share": 1.0, "within": "out to the full reach",
+      "thing": "something is there: a bearing and a range, nothing more",
+      "living": "something alive is there: a bearing and a range, nothing more"
+    },
+    "classify": {
+      "share": 0.5, "within": "inside half of it",
+      "thing": "what kind of thing it is: a vehicle, an armour, a drone, an aircraft, a building",
+      "living": "a person or an animal, and how many"
+    },
+    "identify": {
+      "share": 0.25, "within": "inside a quarter",
+      "thing": "which one: its type and markings, whether it is armed, and whose it is if that shows",
+      "living": "what they are doing and carrying: standing, moving or down, armed or not; and who they are, if he has met them or has them on file"
+    },
+    "read": {
+      "share": 0.125, "within": "inside an eighth",
+      "thing": "its state: heat, damage, load, how many are aboard, what it is doing",
+      "living": "their state: whether they move and breathe, warm or cooling, hurt or not"
+    }
+  },
+  "edge": {
+    "sure": 0.5, "dice": "2d6", "roll": 7, "glimpse": 1.5, "glimpse_roll": 11,
+    "note": "inside half of a reach it is certain; out to the reach it takes the roll, once a look; a little beyond it, a glimpse on a high roll"
+  },
+  "sensors": {
+    "optical":  {"is": "cameras, day and low light",        "active": false, "reach": 4000,  "best": "read"},
+    "thermal":  {"is": "thermal imager",                     "active": false, "reach": 3000,  "best": "read"},
+    "radar":    {"is": "radar",                              "active": true,  "reach": 6000,  "best": "classify"},
+    "lidar":    {"is": "lidar",                              "active": true,  "reach": 400,   "best": "identify"},
+    "acoustic": {"is": "microphone array",                   "active": false, "reach": 1500,  "best": "classify"},
+    "receiver": {"is": "receiver for radio and radar emissions", "active": false, "reach": 10000, "best": "classify"}
+  },
+  "targets": {
+    "person":    {"optical": 0.5,  "thermal": 0.6, "radar": 0.15, "lidar": 0.6, "acoustic": 0.1, "living": true,  "is": "a person on foot"},
+    "animal":    {"optical": 0.4,  "thermal": 0.5, "radar": 0.1,  "lidar": 0.5, "acoustic": 0.1, "living": true,  "is": "an animal the size of a dog or a deer"},
+    "vehicle":   {"optical": 1.0,  "thermal": 1.0, "radar": 1.0,  "lidar": 1.0, "acoustic": 1.0, "living": false, "is": "a car or a van"},
+    "heavy":     {"optical": 1.5,  "thermal": 1.4, "radar": 1.6,  "lidar": 1.2, "acoustic": 1.6, "living": false, "is": "a lorry, a tank or other heavy vehicle"},
+    "armour":    {"optical": 0.6,  "thermal": 0.8, "radar": 0.5,  "lidar": 0.7, "acoustic": 0.4, "living": false, "is": "a powered armour"},
+    "drone":     {"optical": 0.25, "thermal": 0.3, "radar": 0.2,  "lidar": 0.3, "acoustic": 0.5, "living": false, "is": "a small drone"},
+    "aircraft":  {"optical": 3.0,  "thermal": 3.0, "radar": 4.0,  "lidar": 1.0, "acoustic": 4.0, "living": false, "is": "an aircraft in the air"},
+    "structure": {"optical": 3.0,  "thermal": 1.5, "radar": 3.0,  "lidar": 1.5, "acoustic": 0.0, "living": false, "is": "a building or other fixed structure"}
+  },
+  "air": {
+    "clear": {"optical": 1.0,  "thermal": 1.0,  "radar": 1.0, "lidar": 1.0,  "acoustic": 1.0},
+    "rain":  {"optical": 0.6,  "thermal": 0.6,  "radar": 0.9, "lidar": 0.5,  "acoustic": 0.6},
+    "snow":  {"optical": 0.4,  "thermal": 0.5,  "radar": 0.9, "lidar": 0.3,  "acoustic": 0.7},
+    "fog":   {"optical": 0.15, "thermal": 0.5,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
+    "dust":  {"optical": 0.3,  "thermal": 0.6,  "radar": 1.0, "lidar": 0.3,  "acoustic": 1.0},
+    "smoke": {"optical": 0.1,  "thermal": 0.7,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
+    "thick": {"optical": 0.0,  "thermal": 0.0,  "radar": 1.0, "lidar": 0.0,  "acoustic": 1.0},
+    "note": "thick is smoke made to blind thermal sights as well as eyes, such as his own"
+  },
+  "light": {
+    "day":   {"optical": 1.0},
+    "dusk":  {"optical": 0.7},
+    "night": {"optical": 0.35},
+    "dark":  {"optical": 0.1},
+    "note": "only the cameras care; night is moon or street light, dark is neither"
+  },
+  "cover": {
+    "open":    {"optical": 1.0, "thermal": 1.0, "radar": 1.0, "lidar": 1.0, "acoustic": 1.0, "receiver": 1.0},
+    "partial": {"optical": 0.5, "thermal": 0.5, "radar": 0.7, "lidar": 0.5, "acoustic": 0.9, "receiver": 1.0},
+    "thin":    {"optical": 0.0, "thermal": 0.25, "radar": 0.25, "lidar": 0.0, "acoustic": 0.7, "receiver": 0.9},
+    "hidden":  {"optical": 0.0, "thermal": 0.0, "radar": 0.0, "lidar": 0.0, "acoustic": 0.4, "receiver": 0.7},
+    "thin_reach_m": 60,
+    "note": "partial is in a hedge, a doorway or a window; thin is behind a light wall or inside a vehicle's skin, which thermal and radar read through at a quarter strength and only at short range; hidden is behind a solid wall or underground"
+  },
+  "state": {
+    "hot":      {"thermal": 1.5, "is": "running hot", "means": "engine running, or only just stopped"},
+    "cold":     {"thermal": 0.5, "is": "cold", "means": "stood long enough to cool"},
+    "moving":   {"radar": 1.5, "acoustic": 1.5, "optical": 1.2, "is": "moving", "means": "on the move"},
+    "still":    {"radar": 0.7, "is": "standing still", "means": "not moving"},
+    "loud":     {"acoustic": 2.5, "is": "noisy", "means": "an engine at work, shots, shouting"},
+    "quiet":    {"acoustic": 0.3, "thermal": 0.6, "is": "keeping quiet", "means": "trying not to be found: engine off, or masked"},
+    "emitting": {"receiver": 1.0, "is": "transmitting", "means": "using a radio, a radar or a control link"}
+  },
+  "own": {
+    "silent": {"off": ["radar", "lidar"], "why": "silent running: nothing that sends out a signal is on, so radar and lidar are off"},
+    "smoke":  {"air": "thick", "why": "inside his own smoke: it blinds his cameras, his thermal imager and his lidar as it blinds everyone's; radar and microphones still work"},
+    "veil":   {"why": "the Veil is up: it does not dim his own sensors"},
+    "seen_by": 2.0
+  },
+  "port": {
+    "seconds": 60,
+    "tells": "what the sample is made of (a fuel, an oil, a coolant, water, soil, a metal, a fibre), and whether it is flammable, corrosive or toxic",
+    "not": "where it came from, or who handled it",
+    "rule": "one sample at a time, put in by hand"
+  }
+}

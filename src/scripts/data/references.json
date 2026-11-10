@@ -1,0 +1,29 @@
+{
+  "note": "Things of a standard size, for the measure tool: something in a picture whose real size is known gives the picture its scale. Sizes are in millimetres and are the ones the named standard or issuer publishes. A size that differs from country to country is not listed as if it did not. Edit freely; a size given on the command line needs no entry here.",
+  "references": {
+    "card": {"mm": 85.6, "is": "a bank or ID card, long side", "source": "ISO/IEC 7810, card size ID-1: 85.60 x 53.98 mm"},
+    "card-short": {"mm": 53.98, "is": "a bank or ID card, short side", "source": "ISO/IEC 7810, card size ID-1: 85.60 x 53.98 mm"},
+    "a4": {"mm": 297.0, "is": "an A4 sheet, long side", "source": "ISO 216: A4 is 210 x 297 mm"},
+    "a4-short": {"mm": 210.0, "is": "an A4 sheet, short side", "source": "ISO 216: A4 is 210 x 297 mm"},
+    "plate-eu": {"mm": 520.0, "is": "a one-line car number plate 520 mm wide, as in Germany and Poland", "source": "Germany: 520 x 110 mm at most (FZV, Anlage 4); Poland: 520 x 114 mm (Dz.U. 2024 poz. 1709). Many European countries use this width and some do not: check the country, and use the width only"},
+    "plate-us": {"mm": 304.8, "is": "a North American number plate, width", "source": "AAMVA License Plate Standard: 12 x 6 inches"},
+    "pallet": {"mm": 1200.0, "is": "a EUR pallet, long side", "source": "EPAL Euro pallet: 800 x 1,200 x 144 mm"},
+    "pallet-short": {"mm": 800.0, "is": "a EUR pallet, short side", "source": "EPAL Euro pallet: 800 x 1,200 x 144 mm"},
+    "pallet-height": {"mm": 144.0, "is": "a EUR pallet, height", "source": "EPAL Euro pallet: 800 x 1,200 x 144 mm"},
+    "container-20": {"mm": 6058.0, "is": "a 20 ft freight container, length", "source": "ISO 668, size 1CC: 6,058 x 2,438 x 2,591 mm"},
+    "container-40": {"mm": 12192.0, "is": "a 40 ft freight container, length", "source": "ISO 668, sizes 1A to 1AAA: 12,192 mm long"},
+    "container-width": {"mm": 2438.0, "is": "a freight container, width", "source": "ISO 668: 2,438 mm wide"},
+    "container-height": {"mm": 2591.0, "is": "a freight container of standard height (a high cube is 2896 mm)", "source": "ISO 668: 2,591 mm; a high cube is 2,896 mm"},
+    "rail-gauge": {"mm": 1435.0, "is": "standard-gauge railway track, between the rails", "source": "European standard nominal track gauge, 1,435 mm (Regulation (EU) No 1299/2014); not every railway uses it"},
+    "euro-1": {"mm": 23.25, "is": "a 1 euro coin, diameter", "source": "Regulation (EU) No 729/2014, Annex I"},
+    "euro-2": {"mm": 25.75, "is": "a 2 euro coin, diameter", "source": "Regulation (EU) No 729/2014, Annex I"},
+    "euro-note-5": {"mm": 120.0, "is": "a 5 euro note, length", "source": "European Central Bank: 120 x 62 mm"},
+    "euro-note-10": {"mm": 127.0, "is": "a 10 euro note, length", "source": "European Central Bank: 127 x 67 mm"},
+    "euro-note-20": {"mm": 133.0, "is": "a 20 euro note, length", "source": "European Central Bank: 133 x 72 mm"},
+    "euro-note-50": {"mm": 140.0, "is": "a 50 euro note, length", "source": "European Central Bank: 140 x 77 mm"},
+    "cd": {"mm": 120.0, "is": "a compact disc, diameter", "source": "ECMA-130: 120 mm"},
+    "aa": {"mm": 50.5, "is": "an AA battery, length (the most the standard allows)", "source": "IEC size R6, as makers' datasheets give it: at most 14.5 x 50.5 mm"},
+    "golf-ball": {"mm": 42.67, "is": "a golf ball, diameter (the least the rules allow)", "source": "R&A Equipment Rules: not less than 42.67 mm"},
+    "table-tennis-ball": {"mm": 40.0, "is": "a table tennis ball, diameter", "source": "ITTF: a diameter of 40 mm"}
+  }
+}

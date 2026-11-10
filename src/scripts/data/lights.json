@@ -1,0 +1,40 @@
+{
+  "note": "Common dashboard warning lights. Colour sets the urgency: red = stop safely now, amber = act soon, green/blue/white = information. Symbols and behaviour vary by maker: the car's handbook wins. [table]",
+  "colours": {
+    "red": "stop safely as soon as you can; do not drive on",
+    "amber": "something needs attention soon; drive gently and get it checked",
+    "green": "information: a system is on",
+    "blue": "information: a system is on",
+    "white": "information"
+  },
+  "lights": [
+    {"name": "oil pressure", "aka": ["oil can", "oil", "lubrication"], "colour": "red", "means": "engine oil pressure is too low", "do": "stop and switch the engine off at once; check the level when safe; do not restart if the light stays on: tow it"},
+    {"name": "coolant temperature", "aka": ["thermometer", "overheat", "temperature", "coolant"], "colour": "red", "means": "the engine is overheating or coolant is low", "do": "stop, switch off, let it cool for at least 30 minutes; never open the cap hot; top up and find the leak, or tow it"},
+    {"name": "charging system", "aka": ["battery", "alternator", "12 v"], "colour": "red", "means": "the alternator is not charging the 12 V battery", "do": "switch off heating, heated seats and other loads; drive straight to a safe place or a garage; the car will stop when the battery is flat"},
+    {"name": "brake system", "aka": ["brake", "handbrake", "parking brake", "brake fluid", "exclamation circle"], "colour": "red", "means": "the parking brake is on, or brake fluid is low, or there is a hydraulic fault", "do": "release the parking brake; if the light stays on, stop: test the pedal gently, do not drive with a soft or sinking pedal"},
+    {"name": "power steering", "aka": ["steering wheel", "eps"], "colour": "red", "means": "steering assistance has failed (amber on some cars: reduced assistance)", "do": "the steering still works but is heavy; stop safely, restart once; if it stays on, drive slowly to a garage or call for help"},
+    {"name": "airbag", "aka": ["srs", "restraint"], "colour": "red", "means": "an airbag or belt pre-tensioner fault", "do": "the airbags may not fire in a crash; safe to drive carefully, but get it checked soon"},
+    {"name": "seat belt", "aka": ["belt"], "colour": "red", "means": "someone is not belted in", "do": "belt up"},
+    {"name": "door open", "aka": ["bonnet", "boot", "tailgate", "door ajar"], "colour": "red", "means": "a door, the bonnet or the boot is not shut", "do": "stop and close it; an open bonnet can fly up at speed"},
+    {"name": "engine", "aka": ["check engine", "mil", "engine management", "emissions"], "colour": "amber", "means": "the engine computer has logged a fault, often emissions-related", "do": "steady: drive gently and have the code read soon. Flashing: a misfire is happening now; ease off, avoid load, stop soon, or the catalytic converter may be damaged"},
+    {"name": "abs", "aka": ["anti-lock"], "colour": "amber", "means": "anti-lock braking is off", "do": "the brakes still work but can lock on slippery roads; leave more room and get it checked. If the red brake light is on too, stop"},
+    {"name": "stability control", "aka": ["esc", "esp", "traction", "skid", "car with skid marks"], "colour": "amber", "means": "flashing: the system is working. Steady: it is switched off or faulty", "do": "flashing: you are at the grip limit, ease off. Steady: check it was not switched off; if not, get it checked"},
+    {"name": "tyre pressure", "aka": ["tpms", "flat", "puncture"], "colour": "amber", "means": "a tyre is under-inflated; flashing then steady means a sensor fault", "do": "slow down, check all four pressures cold as soon as you can; reset the system after inflating"},
+    {"name": "glow plugs", "aka": ["preheat", "coil", "diesel"], "colour": "amber", "means": "diesel pre-heating; flashing while driving means an engine management fault", "do": "wait for it to go out before starting; if it flashes while driving, treat it like the engine light"},
+    {"name": "diesel particulate filter", "aka": ["dpf", "particulate", "soot"], "colour": "amber", "means": "the exhaust filter is filling with soot", "do": "drive at a steady higher speed for 15-20 minutes as the handbook describes; if it stays on, a garage must clean it before it blocks"},
+    {"name": "adblue", "aka": ["def", "urea", "scr"], "colour": "amber", "means": "exhaust fluid is low (red or a countdown: nearly empty)", "do": "top up soon; many cars will not restart once it runs out"},
+    {"name": "low fuel", "aka": ["fuel", "pump"], "colour": "amber", "means": "the fuel reserve is in use", "do": "refuel; running a diesel dry can mean bleeding the system"},
+    {"name": "brake pad wear", "aka": ["pads", "dashed circle"], "colour": "amber", "means": "the brake pads are near their limit", "do": "book new pads soon; braking still works for now"},
+    {"name": "bulb failure", "aka": ["lamp", "light bulb"], "colour": "amber", "means": "an exterior light is out", "do": "check all lights and replace the bulb; a dead brake light or headlight is a fine in most countries"},
+    {"name": "washer fluid", "aka": ["screenwash", "windscreen"], "colour": "amber", "means": "the washer reservoir is low", "do": "top up; use winter fluid below freezing"},
+    {"name": "epc", "aka": ["electronic power control", "throttle"], "colour": "amber", "means": "a throttle or engine power control fault (a label some makes use)", "do": "power may be limited; drive gently and have it read"},
+    {"name": "service", "aka": ["spanner", "wrench", "inspection"], "colour": "amber", "means": "a service is due, or on some makes a powertrain fault", "do": "check the display for a message; book a service"},
+    {"name": "frost warning", "aka": ["snowflake", "ice", "outside temperature"], "colour": "amber", "means": "the outside temperature is near freezing (typically from +4 C down; red at or below 0 C on some cars)", "do": "bridges and shaded stretches may be icy: slow down, lengthen the gap, smooth inputs"},
+    {"name": "limited power", "aka": ["turtle", "tortoise", "reduced power"], "colour": "amber", "means": "an electric or hybrid car has cut power to protect the battery or motor", "do": "ease off and find a safe place; it is often a cold, hot or nearly empty battery"},
+    {"name": "high-voltage system", "aka": ["ev fault", "hybrid system", "electric car with exclamation"], "colour": "red", "means": "a fault in the high-voltage battery or drive of an electric or hybrid car", "do": "stop safely, switch off, do not touch orange cables, call the maker's assistance"},
+    {"name": "main beam", "aka": ["high beam", "full beam"], "colour": "blue", "means": "main beam headlights are on", "do": "dip for oncoming traffic and when following"},
+    {"name": "front fog lights", "aka": ["fog"], "colour": "green", "means": "front fog lights are on", "do": "switch off when visibility improves"},
+    {"name": "rear fog light", "aka": ["rear fog"], "colour": "amber", "means": "the rear fog light is on", "do": "use only below about 50 m visibility and switch it off afterwards: it dazzles drivers behind"},
+    {"name": "cruise control", "aka": ["speed limiter", "acc"], "colour": "green", "means": "cruise control or the limiter is active", "do": "information only; do not use cruise control on ice or standing water"}
+  ]
+}

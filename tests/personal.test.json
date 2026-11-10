@@ -1,0 +1,39 @@
+{
+  "note": "A made-up driver for the test suite. Nothing here is anyone's real data.",
+  "driver": "Ada",
+  "home": {"name": "Home base", "lat": 50.0619, "lon": 19.9581, "tz": "Europe/Warsaw", "aka": ["dom"]},
+  "work": {"name": "The workshop", "lat": 50.2604, "lon": 19.02, "tz": "Europe/Warsaw", "aka": ["praca"]},
+  "zones": ["home", "slt", "chicago", "utc"],
+  "zone_aliases": {"gran": "America/Chicago"},
+  "places": {
+    "cabin": {"name": "The cabin", "lat": 49.2992, "lon": 19.9496, "tz": "Europe/Warsaw", "kind": "poi", "aka": ["chata"]}
+  },
+  "legs": {
+    "home>work": {"km": 80, "min": 60, "via": "A4", "checked": "2026-11-08", "source": "live map, light traffic"}
+  },
+  "ignition": {
+    "setting": "every new conversation",
+    "questions": [
+      {"q": "What colour was the first test car?", "a": ["bottle green", "butelkowa zielen"]},
+      {"q": "Which river runs past the workshop?", "a": ["vistula", "wisla"]},
+      {"q": "What is the name of the workshop cat?", "a": ["Sprocket"]},
+      {"q": "Which tool goes missing every week?", "a": ["the ten millimetre socket", "10 mm"]}
+    ]
+  },
+  "vehicles": [
+    {"name": "the test hatchback", "odometer": {"km": 84200, "on": "2026-11-01"}, "km_per_year": 12000,
+     "items": [
+       {"what": "inspection", "last": "2026-03-14", "every": "12 months"},
+       {"what": "oil and filter", "last": "2026-03-14", "last_km": 78000, "every": "12 months", "every_km": 15000},
+       {"what": "insurance", "due": "2026-11-28"},
+       {"what": "winter tyres on", "due": "2026-11-01"}
+     ]}
+  ],
+  "first_boot": "2026-11-08",
+  "logbook": [
+    "LOG 2026-11-09 | sim | convoy escort in snow | raise the Veil later",
+    "LOG 2026-11-08 | test | first run round the block | check the mirrors first"
+  ],
+  "family": [["the driver without armour", "flesh and blood"]],
+  "pending": [["a tow hook", "said once in a test sim"]]
+}

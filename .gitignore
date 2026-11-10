@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+
+# Never commit anything personal. The private overlay lives outside this repository;
+# these lines are a second lock in case a copy lands here by mistake.
+private/
+firn-private/
+*.private.*
+personal.private.json
+dist-private/
+
+# Downloaded source data for the gazetteer (rebuild with tools/build_places.py)
+geo-data/
+*.geojson
+airports.csv
+cities15000.zip
+cities15000.txt
+admin1CodesASCII.txt
+
+# Editors and the OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

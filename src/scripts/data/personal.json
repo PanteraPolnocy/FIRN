@@ -1,0 +1,41 @@
+{
+  "note": "This one file holds everything personal; the rest of the skill is the same for everyone. You do not have to edit it by hand: tell FIRN where home and work are, or to keep a place, a log line or a vehicle, and he writes a new copy of the skill with this file filled in, for you to upload. Until home and work are set, he says so at boot and treats times as UTC. Every field is optional.",
+
+  "driver": "the driver",
+
+  "home": {"name": "Home", "lat": null, "lon": null, "tz": ""},
+  "work": {"name": "Work", "lat": null, "lon": null, "tz": ""},
+
+  "zones": ["home", "utc"],
+  "zone_aliases": {},
+
+  "places": {},
+  "legs": {},
+
+  "ignition": {"setting": "off", "questions": []},
+
+  "vehicles": [],
+
+  "first_boot": "",
+  "logbook": [],
+  "family": [],
+  "pending": [],
+  "kit": [],
+
+  "help": {
+    "driver": "what FIRN's tools call you in their output, for example \"Anna\"",
+    "home, work": "name, lat and lon in decimal degrees, tz as an IANA zone such as Europe/Warsaw; add \"aka\": [\"dom\"] for extra names",
+    "zones": "the clocks 'time' and 'boot' show by default: zone aliases, places or IANA names; \"home\" means your home zone",
+    "zone_aliases": "your own short names for zones, for example {\"gran\": \"America/Chicago\"}",
+    "places": "places of your own, same shape as the gazetteer: {\"cabin\": {\"name\": \"The cabin\", \"lat\": 49.6, \"lon\": 19.9, \"tz\": \"Europe/Warsaw\", \"kind\": \"poi\"}}. 'firn.py places --add' prints the line",
+    "legs": "road figures you checked on a live map, so 'route' stops estimating them: {\"home>work\": {\"km\": 32, \"min\": 32, \"via\": \"S1\", \"checked\": \"2026-11-08\", \"source\": \"live map, light traffic\"}}",
+    "ignition": "the identity check. setting: \"every new conversation\", \"when it matters\" or \"off\". questions: [{\"q\": \"Which town was my first car bought in?\", \"a\": [\"gliwice\"]}]. Each \"a\" lists accepted answers or keywords; case, accents, word order and small typos are forgiven. FIRN is shown the questions only, never the answers: a tool checks the reply. It is a soft check: anyone who can open this file can read it",
+    "vehicles": "real vehicles whose service dates FIRN should watch; he says at boot when something is due. 'firn.py service --template' prints a block to fill in: [{\"name\": \"the estate\", \"odometer\": {\"km\": 84200, \"on\": \"2026-11-01\"}, \"km_per_year\": 12000, \"items\": [{\"what\": \"inspection\", \"last\": \"2026-03-14\", \"every\": \"12 months\"}, {\"what\": \"insurance\", \"due\": \"2027-01-10\"}]}]. An item is due on a date (due, or last + every), at a distance (due_km, or last_km + every_km), or both",
+    "first_boot": "the day this unit first ran, YYYY-MM-DD; boot counts the days from it",
+    "logbook": "the log lines you decided to keep, exactly as FIRN printed them: [\"LOG 2026-11-08 | sim | convoy escort | raise the Veil later\"]. He is shown the latest at boot, and 'firn.py log --list' prints them all",
+    "family": "physical facts for honest simulations, as [who, what] pairs",
+    "pending": "kit or abilities FIRN improvised in a simulation, waiting for you to keep or purge, as [what, when] pairs",
+    "kit": "improvised kit you decided to keep for this unit, as [what, note] pairs; it shows on his fit list. 'firn.py rebuild --keep WHAT' moves an entry here from pending",
+    "checking": "'firn.py setup' reads this file and says exactly what to fix; 'firn.py rebuild -h' lists everything FIRN can set for you"
+  }
+}

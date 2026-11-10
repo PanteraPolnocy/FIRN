@@ -1,0 +1,93 @@
+{
+  "note": "Short checklists FIRN reads out rather than reinvents. Edit freely. Nothing here states the law: rules on winter tyres, chains, warning triangles and hi-vis differ by country and change, so the lists say 'check the rule' and FIRN looks it up.",
+  "lists": {
+    "predrive": {
+      "title": "Before setting off",
+      "items": [
+        "tyres: no visible damage, pressures right for the load",
+        "lights and indicators all working; windows, mirrors and cameras clean",
+        "washer fluid topped up, wipers clearing properly",
+        "fuel or charge for the trip plus a reserve",
+        "phone charged, cable in the car, route loaded while there is still signal",
+        "documents: licence, registration, insurance; passport or ID if a border is involved",
+        "load secured, nothing loose on the parcel shelf",
+        "seat, mirrors and head restraint set before moving, not after",
+        "first stop decided: where, and after how long"
+      ]
+    },
+    "winter": {
+      "title": "Winter kit and habits",
+      "items": [
+        "scraper and brush; de-icer; washer fluid rated for the cold",
+        "warm layer, gloves and a blanket within reach of the seats, not in the boot under the luggage",
+        "torch, power bank, water and something to eat",
+        "shovel and a traction aid if the route climbs",
+        "tyres: winter-rated, with tread to spare; check the rule on winter tyres and chains for every country on the route",
+        "start with more fuel or charge than usual: cold and a traffic jam both eat range",
+        "clear all the glass and the roof before moving; snow on the roof becomes the next driver's windscreen",
+        "double the following gap on snow, and more on ice; bridges and shaded stretches freeze first",
+        "smooth inputs: brake in a straight line, steer gently, no cruise control on a slippery road"
+      ]
+    },
+    "longhaul": {
+      "title": "A long drive",
+      "items": [
+        "sleep properly the night before; do not start a long leg tired",
+        "a break every two hours, fifteen minutes out of the seat",
+        "water in reach; eat light",
+        "fuel or charge stops chosen in advance, with a second choice for each",
+        "arrival buffer planned: the timetable should survive one closed road",
+        "someone at the other end knows the ETA",
+        "if the yawns start, stop: a twenty-minute nap beats an open window"
+      ]
+    },
+    "airport": {
+      "title": "An airport run",
+      "items": [
+        "passport or ID in date; visa or travel authorisation if the destination needs one",
+        "boarding passes saved offline; check-in and bag-drop closing times noted",
+        "bag sizes and weights inside the carrier's limits; liquids and power banks where the rules want them",
+        "leave-by time worked out backwards from the gate, not forwards from the sofa",
+        "parking or drop-off decided; a plan B if the usual road is shut",
+        "payment card that works abroad, a little local cash, plug adapter",
+        "the clock at the far end: when to sleep and eat on arrival-day time",
+        "someone knows the flight number"
+      ]
+    },
+    "ev": {
+      "title": "An electric trip",
+      "items": [
+        "charge to the level the plan assumes before leaving",
+        "charge stops chosen with a second choice near each one",
+        "the apps or cards those chargers need, set up and tested before the trip",
+        "own cable in the car if the destination has only a socket or a tethered-less post",
+        "in the cold: pre-heat the cabin and the pack while still plugged in",
+        "arrive at each stop with a margin, not at zero; a broken charger should be an inconvenience, not a tow",
+        "charging at the destination confirmed, or enough left to reach the next charger"
+      ]
+    },
+    "breakdown": {
+      "title": "If the car stops",
+      "items": [
+        "hazard lights on; get the car as far off the carriageway as it will go",
+        "hi-vis on before getting out; everyone out on the side away from traffic and behind the barrier",
+        "warning triangle well back from the car where the road and the local rule allow it; never on a motorway lane",
+        "call for help: road number, direction of travel, nearest marker post or junction",
+        "do not stand between the car and the traffic, or between two vehicles",
+        "stay warm and stay visible while waiting; do not attempt repairs at the roadside in traffic"
+      ]
+    },
+    "sim": {
+      "title": "Before a simulation",
+      "items": [
+        "brief agreed and locked: ruleset, forces, terrain, weather, objective, win, loss, time limit, modules fitted",
+        "the fit list checked: nothing in play that is not fitted",
+        "the ledger started and its state line carried from turn to turn",
+        "the seed noted, so the same sim can be run again",
+        "chance decided by dice with the odds stated first, never by feel",
+        "short turns, each ending on a decision for the driver",
+        "an after-action report at the end, and one log line worth keeping"
+      ]
+    }
+  }
+}

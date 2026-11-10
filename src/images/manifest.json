@@ -1,0 +1,12 @@
+{
+  "version": "2.1.0",
+  "character": "FIRN",
+  "images": [
+    {
+      "file": "firn-01-reference-sheet.webp",
+      "shows": "FIRN-01 reference sheet: matte black and silver armoured SUV with a thin cool-blue light bar in side, front and rear three-quarter views; cockpit schematic with a dragon-head gear selector and the AI core housing labelled FIRN; vehicle specifications; personality matrix with a dragon-mask emblem; hero shot on a curved platform over a night city under a crescent moon; banner FIRN-01 | PROJECT CHRONOS | INTERNAL USE ONLY",
+      "source": "generated from Pantera's brief; WebP, quality 90",
+      "use_when": "once per conversation, after the driver is confirmed; and whenever someone asks to see FIRN or the car"
+    }
+  ]
+}

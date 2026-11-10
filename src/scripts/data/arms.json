@@ -1,0 +1,69 @@
+{
+  "note": "House rules for weapons in FIRN's simulations, for when the driver names no ruleset. Game mechanics only: dice, range bands, how much of each kind of damage each kind of armour lets through. Nothing here describes how a real weapon is made, sized or used. Edit freely; anything passed on the command line overrides this file.",
+  "label": "house rules, November 2026",
+  "attack": {
+    "dice": "2d6",
+    "base": 7,
+    "band": {"short": 0, "medium": 2, "long": 4},
+    "beam_band": {"short": 0, "medium": 0, "long": 2},
+    "cover": {"none": 0, "light": 1, "half": 2, "full": 4},
+    "note": "roll the dice plus skill and meet the target number: the base, plus the range band, plus cover"
+  },
+  "kinds": {
+    "shot": "bullets and shells",
+    "pierce": "arrows, bolts, spears, thrown points",
+    "cut": "blades",
+    "crush": "clubs, hammers, fists, falls, rams",
+    "blast": "explosions",
+    "beam": "lasers and other energy weapons"
+  },
+  "armour": {
+    "none":     {"shot": 1.0,  "pierce": 1.0,  "cut": 1.0,  "crush": 1.0,  "blast": 1.0,  "beam": 1.0,  "is": "clothing"},
+    "padded":   {"shot": 1.0,  "pierce": 0.75, "cut": 0.75, "crush": 0.75, "blast": 1.0,  "beam": 1.0,  "is": "padded or leather"},
+    "mail":     {"shot": 1.0,  "pierce": 0.75, "cut": 0.25, "crush": 0.75, "blast": 1.0,  "beam": 1.0,  "is": "mail"},
+    "plate":    {"shot": 0.75, "pierce": 0.5,  "cut": 0.25, "crush": 0.5,  "blast": 0.75, "beam": 0.75, "is": "plate harness"},
+    "vest":     {"shot": 0.5,  "pierce": 0.75, "cut": 0.75, "crush": 1.0,  "blast": 0.75, "beam": 1.0,  "is": "a modern protective vest"},
+    "mirrored": {"shot": 0.75, "pierce": 0.5,  "cut": 0.25, "crush": 0.5,  "blast": 0.75, "beam": 0.5,  "is": "plate with a reflective finish"},
+    "ablative": {"shot": 0.75, "pierce": 0.75, "cut": 0.5,  "crush": 0.75, "blast": 0.75, "beam": 0.25, "is": "a coating that burns away under a beam; the driver rules how many hits it lasts"},
+    "powered":  {"shot": 0.25, "pierce": 0.1,  "cut": 0.1,  "crush": 0.25, "blast": 0.25, "beam": 0.25, "is": "powered armour"},
+    "vehicle":  {"shot": 0.75, "pierce": 0.25, "cut": 0.1,  "crush": 0.5,  "blast": 1.0,  "beam": 0.75, "is": "an ordinary car or van"},
+    "armoured": {"shot": 0.1,  "pierce": 0.0,  "cut": 0.0,  "crush": 0.1,  "blast": 0.5,  "beam": 0.5,  "is": "an armoured vehicle"}
+  },
+  "air": {
+    "clear": 1.0, "rain": 0.75, "fog": 0.5, "smoke": 0.5, "dust": 0.5, "thick": 0.25,
+    "note": "what the air between lets through of a beam; thick is smoke made to stop one"
+  },
+  "blast_cover": {"none": 1.0, "light": 0.75, "half": 0.5, "full": 0.25},
+  "blast_bands": {"full": 1.0, "half": 0.5, "quarter": 0.25},
+  "subdue": "to subdue: a living target taken to zero this way is out of the fight, alive and in no danger. A weapon built for it does its full dice; any other weapon used to stop rather than kill does half",
+  "weapons": {
+    "fist":        {"class": "melee",  "dice": "1d3",  "kind": "crush",  "reach": 1},
+    "knife":       {"class": "melee",  "dice": "1d4",  "kind": "cut",    "reach": 1},
+    "club":        {"class": "melee",  "dice": "1d6",  "kind": "crush",  "reach": 1},
+    "staff":       {"class": "melee",  "dice": "1d6",  "kind": "crush",  "reach": 2},
+    "sword":       {"class": "melee",  "dice": "1d8",  "kind": "cut",    "reach": 1},
+    "axe":         {"class": "melee",  "dice": "1d8",  "kind": "cut",    "reach": 1},
+    "hammer":      {"class": "melee",  "dice": "1d8",  "kind": "crush",  "reach": 1},
+    "spear":       {"class": "melee",  "dice": "1d8",  "kind": "pierce", "reach": 2},
+    "polearm":     {"class": "melee",  "dice": "1d10", "kind": "cut",    "reach": 3},
+    "greatsword":  {"class": "melee",  "dice": "2d6",  "kind": "cut",    "reach": 2},
+    "stun_baton":  {"class": "melee",  "dice": "1d6",  "kind": "crush",  "reach": 1, "subdue": true},
+    "thrown_knife": {"class": "thrown", "dice": "1d4", "kind": "pierce", "bands": [5, 10, 20],   "speed": 20},
+    "javelin":     {"class": "thrown", "dice": "1d6",  "kind": "pierce", "bands": [10, 20, 40],  "speed": 25},
+    "sling":       {"class": "thrown", "dice": "1d4",  "kind": "crush",  "bands": [20, 40, 80],  "speed": 30},
+    "shortbow":    {"class": "bow",    "dice": "1d6",  "kind": "pierce", "bands": [20, 60, 120], "speed": 45},
+    "longbow":     {"class": "bow",    "dice": "1d8",  "kind": "pierce", "bands": [30, 90, 180], "speed": 55},
+    "crossbow":    {"class": "bow",    "dice": "1d10", "kind": "pierce", "bands": [30, 80, 160], "speed": 65, "reload": 1},
+    "pistol":      {"class": "gun",    "dice": "2d6",  "kind": "shot",   "bands": [10, 25, 50],  "speed": 350},
+    "rifle":       {"class": "gun",    "dice": "2d8",  "kind": "shot",   "bands": [50, 200, 500], "speed": 850},
+    "stunner":     {"class": "beam",   "dice": "2d6",  "kind": "beam",   "bands": [10, 30, 60],  "heat": 2, "capacity": 10, "subdue": true},
+    "laser_pistol": {"class": "beam",  "dice": "2d6",  "kind": "beam",   "bands": [50, 150, 300], "heat": 2, "capacity": 10},
+    "laser_rifle": {"class": "beam",   "dice": "2d8",  "kind": "beam",   "bands": [100, 400, 1000], "heat": 3, "capacity": 12},
+    "heavy_laser": {"class": "beam",   "dice": "4d8",  "kind": "beam",   "bands": [200, 800, 2000], "heat": 6, "capacity": 12},
+    "flashbang":   {"class": "blast",  "dice": "2d6",  "kind": "blast",  "radius": [3, 6, 12], "subdue": true},
+    "grenade":     {"class": "blast",  "dice": "3d6",  "kind": "blast",  "radius": [3, 6, 12]},
+    "mine":        {"class": "blast",  "dice": "3d6",  "kind": "blast",  "radius": [2, 4, 8]},
+    "blast_charge": {"class": "blast", "dice": "4d6",  "kind": "blast",  "radius": [2, 5, 10]},
+    "heavy_charge": {"class": "blast", "dice": "6d6",  "kind": "blast",  "radius": [5, 10, 20]}
+  }
+}

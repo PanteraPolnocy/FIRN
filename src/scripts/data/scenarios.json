@@ -1,0 +1,100 @@
+{
+  "note": "Tables for 'firn.py scenario'. Edit freely: every list is rolled with equal weight. Keep entries short and concrete. No weapons are fitted by default (the maker's ruling), so opposition is written as pressure to avoid, not targets to hit.",
+  "missions": [
+    {"name": "Delivery", "objective": "carry one armour core from the lab to a handover point", "win": "core handed over intact, inside the window", "loss": "core lost or damaged, or anyone hurt", "limit": "a 20-minute handover window"},
+    {"name": "Extraction", "objective": "collect two passengers from a marked point and bring them home", "win": "both passengers home and unhurt", "loss": "a passenger left behind or hurt", "limit": "the pick-up point is safe for 10 minutes only"},
+    {"name": "Escort", "objective": "shepherd a slower vehicle along the route and keep it out of trouble", "win": "the escorted vehicle arrives untouched", "loss": "the escorted vehicle is stopped or damaged", "limit": "the convoy moves at the slow vehicle's pace"},
+    {"name": "Recon", "objective": "scout the route end to end and report surface, sight lines, choke points and places to hide", "win": "a full report and nobody knows you were there", "loss": "seen and identified, or the report is incomplete", "limit": "back before the light changes"},
+    {"name": "Evasion", "objective": "you are being followed: lose the tail without leading it home", "win": "tail lost for 15 clear minutes, then home by another road", "loss": "followed home, or forced to stop", "limit": "range, not the clock"},
+    {"name": "Recovery", "objective": "reach a stranded vehicle, shelter its crew in the cell and get everyone out", "win": "crew safe in the cell and clear of the area", "loss": "the crew cannot be reached in time", "limit": "the crew can hold for 25 minutes"},
+    {"name": "Cradle run", "objective": "meet the armour at a rendezvous, dock it under the Veil and leave before anyone notices", "win": "armour docked and the rendezvous left quiet", "loss": "the dock is seen, or the armour stays behind", "limit": "the Veil budget decides how long the dock can take"},
+    {"name": "Timetable", "objective": "three stops, three windows, one charge", "win": "all three windows met with range to spare for the way home", "loss": "a window missed, or not enough range to get home", "limit": "each window is 10 minutes wide"},
+    {"name": "Blackout", "objective": "cross a jammed zone on silent running with no link and no outside data", "win": "through and out with the clock and the map alone", "loss": "detected, or lost", "limit": "silent running holds only while you stay under 60 km/h"},
+    {"name": "Storm front", "objective": "get the passengers through before the weather closes the road", "win": "through before the road shuts, everyone comfortable", "loss": "caught behind the closure", "limit": "the road closes in 40 minutes"}
+  ],
+  "terrain": [
+    "mountain pass, hairpins and a 12 percent grade",
+    "flooded underpass on a city ring road",
+    "ring road in January, black ice wherever the shade falls",
+    "forest track, single lane, no turning for 4 km",
+    "industrial estate, blind corners and loading bays",
+    "coastal road, cliff on one side and crosswind on the other",
+    "empty motorway, long sight lines, nowhere to hide",
+    "old town, narrow streets, tram lines and pedestrians",
+    "long bridge, one way on and one way off",
+    "road tunnel, 3 km of radio shadow",
+    "open farmland, straight roads, mud at every junction",
+    "multi-storey car park and the streets around it",
+    "border crossing with a queue",
+    "quarry road, loose gravel and drop-offs"
+  ],
+  "weather": [
+    "clear and cold, -6 C",
+    "steady rain, standing water",
+    "freezing fog, visibility 60 m",
+    "wet snow, 2 cm and rising",
+    "packed snow and ice, -12 C",
+    "sleet with a gusting crosswind",
+    "heavy rain easing to drizzle",
+    "dry, +28 C, heat haze on the tarmac",
+    "a thaw: wet roads, ice returning after dark",
+    "a thunderstorm, short and violent",
+    "strong steady wind, dry roads",
+    "light snow, good grip for now"
+  ],
+  "light": [
+    "dawn",
+    "full daylight",
+    "low sun, glare on the glass",
+    "dusk",
+    "night, no moon",
+    "night, bright moon"
+  ],
+  "opposition": [
+    "a pursuit car that is faster on the straights",
+    "two pursuit vehicles working as a pair",
+    "a roadblock somewhere ahead, position unknown",
+    "a drone keeping watch from above",
+    "jamming: link and navigation unreliable",
+    "an ambush at one of the choke points",
+    "a rival team after the same objective",
+    "civil traffic only, heavy and unpredictable",
+    "an unknown vehicle that mirrors every turn"
+  ],
+  "arms": [
+    "hand weapons only: clubs, blades and a spear or two, and numbers to make up for it",
+    "bows and crossbows from cover, and blades for anyone who comes close",
+    "pistols and one rifle, short of ammunition",
+    "a blast charge laid somewhere on the route, and one person watching it",
+    "grenades and flashbangs: they mean to stop the car, not to wreck it",
+    "a mine at a choke point, and nothing else",
+    "laser pistols: no travel time and no noise, and they overheat",
+    "one heavy laser on a mount, slow to turn, with a clear line of sight to the road",
+    "stun weapons only: batons and stunners, because they want everyone alive",
+    "a mixed lot: a longbow on the roof, hammers at the gate and one laser rifle"
+  ],
+  "snags": [
+    "one armour core docked at 20 percent charge",
+    "a passenger who gets car-sick: smooth inputs only",
+    "the planned route is closed 9 km in",
+    "range capped at 400 km for this run",
+    "Veil emitters still warm from a test: start with 90 s of heat",
+    "the window moves 15 minutes earlier",
+    "a wheel sensor warning that may be a fault",
+    "the link to base drops in the valleys",
+    "two extra passengers, and the cradle holds one core only",
+    "no stopping: the cargo must stay moving",
+    "road salt has not reached the side roads",
+    "the map is six months out of date"
+  ],
+  "twists": [
+    "the opposition was never after you",
+    "the weather turns for the worse at the halfway point",
+    "the destination is not safe when you arrive",
+    "a second objective appears on the way",
+    "the fastest route is also the most exposed",
+    "someone at the rendezvous is early",
+    "the link comes back with new orders",
+    "you are asked to wait, with the clock running"
+  ]
+}
