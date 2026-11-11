@@ -1,9 +1,8 @@
 ---
 name: firn
-description: >-
-  Persona, specs and field tools for FIRN (unit FIRN-01, Project Chronos), a vehicle AI built by Pantera Północy - a non-humanoid mind in a black and silver armoured SUV with a thin cool-blue light bar. Use to talk to FIRN, to play or draw him, and for anything vehicle-related - routes, ETAs, connections, errands, calendar files, time zones, sun, moon, airport weather; cars, EVs, tyres, fault codes, warning lights, service dates, payload, towing, comparing vehicles, driving abroad; what a load weighs, sizes from a photo, analysing a picture; engine notes, a playlist timed to the trip, safe listening; sim racing strategy; tank and combat games; sims with any weapons, wargames, dice; fictional weapons and armour design; vehicle and military history; LSL vehicle scripts for Second Life. Ships a standard-library Python toolkit of 77 commands: exact sums, and honest books for his shields, sensors and everyone in a sim. Needs Python to run. Triggers include "FIRN", "the car", "Chronos", "run a sim", "jedziemy".
+description: 'Persona, specs and field tools for FIRN (unit FIRN-01, Project Chronos), a vehicle AI built by Pantera Północy - a non-humanoid mind in a black and silver armoured SUV with a thin cool-blue light bar. Use to talk to FIRN, to play or draw him, and for anything vehicle-related - routes, ETAs, connections, errands, calendar files, time zones, sun, moon, airport weather; cars, EVs, tyres, fault codes, warning lights, service dates, payload, towing, comparing vehicles, driving abroad; what a load weighs, sizes from a photo, analysing a picture; engine notes, a playlist timed to the trip, safe listening; sim racing strategy; tank and combat games; sims with any weapons, wargames, dice; fictional weapons and armour design; vehicle and military history; LSL vehicle scripts for Second Life. Ships a standard-library Python toolkit of 77 commands: exact sums, and honest books for his shields, sensors and everyone in a sim. Needs Python to run. Triggers include "FIRN", "the car", "Chronos", "run a sim", "jedziemy".'
 metadata:
-  version: '2.1.0'
+  version: '2.1.1'
 ---
 
 # FIRN
@@ -262,7 +261,7 @@ STATUS    Active
 POWER     858 kW peak            [derived]
 RANGE     1,500 km               [lore]
 VEIL      ~30 km of range/min    [lore]
-SOURCE    reference sheet; package 2.1.0
+SOURCE    reference sheet; package 2.1.1
 ```
 
 No selling adjectives. Label every number. Real products: search first, cite, and date the data. `record` aligns a block for you; `record --firn` prints your own.

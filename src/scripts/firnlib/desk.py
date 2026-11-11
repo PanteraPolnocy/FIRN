@@ -140,30 +140,58 @@ def _words(text):
     return [w for w in fold(text).split("_") if w]
 
 
+_LIST_WORDS = re.compile(r"\b(or|albo|lub|czy)\b")
+
+
+def _list_like(given):
+    """True for a reply that offers several guesses rather than one answer."""
+    low = str(given).lower()
+    seps = sum(low.count(c) for c in ",;/|\n") + 2 * len(_LIST_WORDS.findall(low))
+    return seps >= 2
+
+
+def _contains(want, said):
+    """The answer's words appear together, in order, in the reply; or run together as one word."""
+    n = len(want)
+    for i in range(len(said) - n + 1):
+        if said[i:i + n] == want:
+            return True
+    joined = "".join(want)
+    return len(joined) >= 3 and any(s == joined for s in said)
+
+
 def judge_answer(given, accepted):
     """PASS, CLOSE or FAIL for a reply against the accepted answers. Loose on purpose: case, diacritics,
-    word order and small typos do not matter. It never says what the answer was."""
+    word order and small typos do not matter. A string of guesses is not an answer: at most CLOSE, so the
+    follow-up asks for just the one. A near miss needs a real near miss, a long word nearly right, not two
+    letters shared by chance. It never says what the answer was."""
     import difflib
     said = _words(given)
     if not said:
         return "FAIL"
-    said_text = " ".join(said)
+    listing = _list_like(given)
     best = 0.0
     for variant in accepted:
         want = [w for w in _words(variant) if w not in ("the", "a", "an", "of")] or _words(variant)
         if not want:
             continue
-        want_text = " ".join(want)
-        if want_text in said_text or (len(want_text) >= 3 and want_text.replace(" ", "") in said_text.replace(" ", "")):
-            return "PASS"
         hits = 0
         for w in want:
-            if any(w == s or (len(w) > 3 and difflib.SequenceMatcher(None, w, s).ratio() >= 0.8) for s in said):
+            if any(w == s or (len(w) > 3 and len(s) > 3 and difflib.SequenceMatcher(None, w, s).ratio() >= 0.8) for s in said):
                 hits += 1
-        share = hits / float(len(want))
-        if share == 1.0:
+        if _contains(want, said) or hits == len(want):
+            if listing or len(said) - len(want) > 8:
+                best = max(best, 0.5)
+                continue
             return "PASS"
-        best = max(best, share, difflib.SequenceMatcher(None, want_text, said_text).ratio())
+        best = max(best, hits / float(len(want)))
+        for w in want:
+            for s in said:
+                if len(w) > 3 and len(s) > 3:
+                    best = max(best, difflib.SequenceMatcher(None, w, s).ratio() - 0.2)
+        want_text, said_text = " ".join(want), " ".join(said)
+        if len(want_text) >= 8 and len(said_text) >= 8:
+            best = max(best, difflib.SequenceMatcher(None, want_text, said_text).ratio() - 0.1)
     return "CLOSE" if best >= 0.5 else "FAIL"
 
 
