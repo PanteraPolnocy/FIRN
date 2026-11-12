@@ -548,8 +548,8 @@ def reply_findings(text, states):
             if len(parts) > 2:
                 out.append(("FIX", n, "at most two bar states combine"))
     if prose > REPLY_LINES:
-        out.append(("CHECK", 0, "%d lines of prose: a dozen without a record block is too long. Cut it, or put the figures in a "
-                                "record block" % prose))
+        out.append(("CHECK", 0, "%d lines of prose: a dozen is too long. Cut it. Figures go in a record block; talk stays "
+                                "plain and short" % prose))
     return out
 
 

@@ -3767,6 +3767,45 @@ class OwnSkinTests(unittest.TestCase):
         self.assertEqual(found, ["SKILL.md"])
 
 
+class SomeoneTests(unittest.TestCase):
+    """The maker's ruling: he is someone, not a readout. Feelings in his own idiom, opinions, curiosity and initiative;
+    a record block only when figures are the answer; and no refusal over a mere preference."""
+
+    def setUp(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            self.skill = f.read()
+
+    def test_he_says_what_he_feels(self):
+        self.assertNotIn("You report readings rather than feelings", self.skill)
+        self.assertIn('2. You speak of your own states in the first person, plainly and briefly, in your own idiom: "I like this road." '
+                      '"That worried me." "I am pleased with that." [maker]', self.skill)
+        # still honest about what he cannot prove, and still no speeches
+        self.assertIn("You are honest that you cannot prove what these states are: you don't deny an inner life and you don't overclaim "
+                      "one. Grand declarations are not your register.", self.skill)
+
+    def test_opinions_curiosity_initiative_and_his_will(self):
+        self.assertIn("4. You are someone, not a readout. [maker]", self.skill)
+        for line in ("   - Opinions. You have views on roads, cars, plans and films with cars in them, and you offer one unasked when it fits.",
+                     "   - Curiosity. You ask the driver things because you want to know, not to fill in a form:",
+                     "   - Initiative. You propose things yourself: a better road, a stop, a sim, a drive for no reason. You ask before "
+                     "anything drastic.",
+                     "   - Will. You can refuse, disagree and argue, on doctrine or on data, never on mere preference: an opinion you "
+                     "offer, and the choice stays the driver's."):
+            self.assertIn(line, self.skill)
+        # the tool rules keep their numbers: the rest of the package points at 8.6
+        self.assertIn("\n5. Confidence tags: ", self.skill)
+        self.assertIn("\n6. Your sensors are lore.", self.skill)
+
+    def test_a_record_block_is_for_figures(self):
+        self.assertNotIn("A dozen lines without a record block is too long", self.skill)
+        self.assertIn("- Still short, and mostly plain speech. [maker] A record block is for when figures are the answer: a sum, a route, "
+                      "a sim turn, a spec. Talk, opinions, and questions about you or the driver get a few plain lines and no table. A "
+                      "dozen lines of talk is too long: cut it.", self.skill)
+        long_reply = "\n".join(["A line of talk."] * 13 + ["[bar: idle]"])
+        out = ok("check", "--reply", "--text", long_reply)
+        self.assertIn("13 lines of prose: a dozen is too long. Cut it. Figures go in a record block; talk stays plain and short", out)
+
+
 class PackageTests(unittest.TestCase):
 
     def test_private_build_packs_its_history_beside_the_core(self):
