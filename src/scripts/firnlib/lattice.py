@@ -16,6 +16,7 @@ Events, applied in order:
   temp=-5                   ambient temperature in C (changes how fast Rime re-cools)
   armour=1  armour=0.5      charge a docked armour from the bank: 1 is one armour from empty
   squall=5.1                a Squall burst (a jump): the km of range the jump tool said it costs; it ends silent running
+  spike                     the signature spike: holds a lock for 10 s, costs 10 km, ends silent running, a minute before the next
   km=400  heat=90  charge=300   set by hand: a range cap, a warm start, a recharge the story grants
 """
 import re
@@ -48,6 +49,8 @@ class Ledger:
     def __init__(self, lore):
         lat = lore["lattice"]
         self.cfg = lat
+        self.spike_cfg = lore["spike"]
+        self.spike_ready = 0.0      # ledger time before which the signature spike cannot fire again
         self.full_km = float(lore["chassis"]["range_km"])
         self.t = 0.0
         self.km = self.full_km
@@ -72,7 +75,7 @@ class Ledger:
             VERSION_TAG, "t=" + trim(self.t, 2), "km=" + trim(self.km, 2), "heat=" + trim(self.heat, 2),
             "lock=%d" % self.lock, "veil=" + self.veil, "rime=" + rime, "stack=" + stack,
             "air=" + trim(self.air, 1), "seal=%d" % self.sealed, "silent=%d" % self.silent, "temp=" + trim(self.temp, 1)]
-            + (["smoke=1"] if self.smoke else []))
+            + (["smoke=1"] if self.smoke else []) + (["spike=" + trim(self.spike_ready, 2)] if self.spike_ready > self.t else []))
 
     def load(self, token):
         parts = unprotect(token).strip().split("/")
@@ -98,6 +101,7 @@ class Ledger:
             self.sealed = kv["seal"] == "1"
             self.silent = kv.get("silent", "0") == "1"
             self.smoke = kv.get("smoke", "0") == "1"
+            self.spike_ready = float(kv.get("spike", "0"))
             self.temp = float(kv["temp"])
         except (KeyError, ValueError):
             die("the ledger state token is damaged; paste the STATE line exactly as printed")
@@ -402,6 +406,8 @@ class Ledger:
             self.feed_armour(val)
         elif key == "squall":
             self.squall(val)
+        elif key == "spike":
+            self.spike(val)
         elif key in ("temp", "km", "heat", "charge"):
             try:
                 x = float(val)
@@ -421,7 +427,7 @@ class Ledger:
                 self.say("CHARGE", "+%s km granted by the story: range %s km [by hand]" % (trim(x, 1), num(self.km, 1)))
         else:
             die("unknown ledger event '%s'. Events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= "
-                "km= heat= charge=" % event)
+                "spike km= heat= charge=" % event)
 
     def feed_armour(self, val):
         """Charge a docked armour from the bank. val is how many full charges: 1 is one armour from empty."""
@@ -464,6 +470,28 @@ class Ledger:
             self.say("SILENT", "ended: a Squall is heard a long way off")
         self.say("SQUALL", "burst fired at t=%s: -%s km: range %s -> %s km [lore]" % (
             clock(self.t), trim(km, 1), num(before, 1), num(self.km, 1)))
+
+    def spike(self, val):
+        """The signature spike: a burst of emissions that pulls a targeting system onto him. It holds the lock for a few
+        seconds, costs range, cannot be silent, and needs a minute before the next."""
+        if val:
+            die("spike takes no value: it fires once")
+        cfg = self.spike_cfg
+        if self.t < self.spike_ready - 1e-9:
+            self.say("SPIKE", "REFUSED: the last one fired at t=%s and the next is not ready before t=%s" % (
+                clock(self.spike_ready - cfg["again_s"]), clock(self.spike_ready)))
+            return
+        if cfg["km"] > self.km + 1e-9:
+            self.say("SPIKE", "REFUSED: a spike needs %s km of range and %s km is left" % (trim(cfg["km"], 1), num(self.km, 1)))
+            return
+        before = self.km
+        self.km = max(0.0, self.km - cfg["km"])
+        self.spike_ready = self.t + cfg["again_s"]
+        if self.silent:
+            self.silent = False
+            self.say("SILENT", "ended: a spike is a shout on every band")
+        self.say("SPIKE", "fired at t=%s: it holds their lock until t=%s; -%s km: range %s -> %s km; ready again at t=%s [lore]" % (
+            clock(self.t), clock(self.t + cfg["lock_s"]), trim(cfg["km"], 1), num(before, 1), num(self.km, 1), clock(self.spike_ready)))
 
     def summary(self):
         limit = self.cfg["veil_overheat_s"]
@@ -517,7 +545,7 @@ def cmd_lattice(a):
     rec("STATE", led.token())
     if fresh and not a.events:
         rec("NEXT", "pass that STATE back with --state and add events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= "
-                    "armour= squall=")
+                    "armour= squall= spike")
         rec("HITS", "hit=FACE:heavy|light, then the kind: shot (default), blast, beam or hand, and :surprise if it was not seen coming [maker]")
         per = led.cfg.get("cradle_charge_km")
         rec("RULES", "Veil %s km/min full, %s of that for one face; emitters trip at %d s of heat; Rime re-cools in %d-%d s; "
@@ -534,8 +562,8 @@ def register(sub):
                  "lattice --state F2/... cost=full:120", "lattice --state F2/... drive=12@90 seal wait=5m",
                  "lattice --state F2/... armour=1", "lattice hit=under:heavy:blast wait=20 hit=front:light:beam smoke=on hit=left:heavy:beam"])
     p.add_argument("events", nargs="*",
-                   help="events in order: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= km= heat= "
-                        "charge=")
+                   help="events in order: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= spike "
+                        "km= heat= charge=")
     p.add_argument("--state", help="the STATE token from the previous turn (omit to start a new ledger)")
     p.add_argument("--km", type=float, help="start or override: range left, km")
     p.add_argument("--heat", type=float, help="start or override: emitter heat, s")

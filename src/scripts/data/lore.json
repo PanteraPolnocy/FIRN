@@ -89,6 +89,24 @@
     "A jump has no limit on g short of what would injure, knock out or kill someone aboard. Above that he warns the driver first, unless there is no time for an answer. [maker]",
     "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push, with 400 kWh in the bank; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [maker]"
   ],
+  "spike": {
+    "lock_s": 10,
+    "km": 10,
+    "again_s": 60,
+    "note": "[maker] The signature spike holds a lock for 10 s, costs 10 km of range, ends silent running, and cannot fire again for a minute."
+  },
+  "grapple": {
+    "line_m": 50,
+    "pull_kg": 3000,
+    "note": "[maker] 50 m of line and a pull of 3 t, about his own weight: he drags himself out of a ditch or recovers a car. A hard pull costs range like a climb. It cannot hold a powered armour."
+  },
+  "ford": {
+    "depth_m": 1.5,
+    "note": "[maker] He wades to 1.5 m, bonnet-deep, crawling. Cameras and lidar low on the body are out while he is in it, and the Rime takes longer to re-cool afterwards."
+  },
+  "unmanned": {
+    "note": "[maker] With nobody aboard he keeps the posted limits, lights on, and does not run silent unless asked. Faster only when the driver calls it urgent, and he says so."
+  },
   "recharge": {
     "spine_min": 10,
     "road_kw": 350,
@@ -108,14 +126,16 @@
       ["sample port in the cabin", "maker", "one sample at a time, about a minute: what it is made of, and whether it is flammable, corrosive or toxic; not where it came from or who handled it"],
       ["smoke screen from the sills", "maker", "breaks line of sight; capacity not set"],
       ["multispectral smoke in that screen", "firn", "blinds thermal sights as well as eyes, where plain fog would not; improvised in the first stress test, kept 10 November 2026"],
-      ["signature spike", "firn", "a deliberate burst of emissions that pulls a targeting system onto him and off someone else; improvised in the first stress test, kept 10 November 2026"],
+      ["signature spike", "firn", "a deliberate burst of emissions that pulls a targeting system onto him and off someone else; improvised in the first stress test, kept 10 November 2026. By the maker's ruling it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next"],
       ["armour cradle: clamps, power coupling, data spine", "maker", "up to two folded armour cores with two passengers aboard; charging one armour from empty costs 100 km of range"],
       ["adaptive air suspension, 190 to 280 mm clearance", "maker", ""],
       ["tri-motor all-wheel drive, 1,150 hp peak", "sheet", "braking on reverse motor torque is a valid field option [maker]"],
       ["22 inch turbine-pattern rims on airless run-flat tyres", "maker", ""],
       ["speed governor at 250 km/h", "maker", "his own, not lifted for fun"],
       ["thin cool-blue light bar, front and tail", "maker", "his face, his voice light and the Veil emitter"],
-      ["grapple", "maker", "named by the maker among his systems; it cannot hold a powered armour"],
+      ["grapple", "maker", "50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a climb; it cannot hold a powered armour"],
+      ["wading to 1.5 m", "maker", "bonnet-deep, crawling; cameras and lidar low on the body are out while he is in it, and the Rime takes longer to re-cool afterwards"],
+      ["driving with nobody aboard", "maker", "within the posted limits, lights on, not silent unless asked; faster only when the driver calls it urgent, and he says so"],
       ["the Squall: ducts under the floor that throw a short burst of air downward", "maker", "lifts him over a gap, at a cost in range that grows with his mass and the distance (the jump tool); loud, so it ends silent running; a leap, not flight: no steering once the wheels leave the ground"],
       ["steering wheel and pedals", "sheet", "the driver may take the wheel whenever they like; no other mind drives him unless he hands over because he is damaged [maker]"]
     ],
@@ -126,10 +146,9 @@
     ],
     "unknown": [
       ["how the Lattice fares against a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],
-      ["grapple reach and strength", "no figure"],
       ["how long charging a docked armour takes", "no figure"],
       ["smoke screen capacity", "no figure"],
-      ["what a signature spike costs, and how long it holds a lock", "no figure"],
+      ["how much longer the Rime takes to re-cool after wading, and how fast he crawls in water", "no figure"],
       ["how far each sensor reaches, to the metre", "house rules in sensors.json until the maker gives figures: a brief may set its own"],
       ["how soon the Squall can fire again", "no figure"]
     ]

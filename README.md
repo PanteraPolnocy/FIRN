@@ -10,7 +10,7 @@ What he is for:
 - **Keeping time**: any moment across zones, the weeks when two countries' clocks are out of step, shared waking hours, exact spans.
 - **Vehicles**: performance, stopping distances, an overtake in metres, collisions, gearing, tyres, EV range and charging, fuel or charge stops along a route, fuel cost, fault codes, warning lights; service dates, a mileage log, payload, towing and "will it fit"; vehicles side by side; when to warm the cabin, and how hot a parked car gets.
 - **Things, pictures and sound**: what a load weighs and what the straps must hold; a size read off a photo; an engine's note, a playlist that ends as you arrive, how long a sound level is safe.
-- **Racing, simulations and games**: lap times and pit strategy; dice with exact odds, armour and spotting arithmetic, house rules for any weapon; honest books for his own shields, his sensors, his jumps and everyone else on the board, so no side has plot armour.
+- **Racing, simulations and games**: lap times and pit strategy; dice with exact odds, armour and spotting arithmetic, house rules for any weapon; honest books for his own shields, his sensors, his jumps and everyone else on the board, so no side has plot armour; and sums for the hull at work: coming when called, a chase, the grapple, an escort on foot, deep water.
 - **Second Life**: a checked reference for the LSL vehicle engine, a script skeleton and a lint.
 - **Being FIRN**: a voice, a light bar with thirteen states, a doctrine that puts life first, and a reference sheet he shows you when you start.
 

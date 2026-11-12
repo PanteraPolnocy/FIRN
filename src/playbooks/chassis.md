@@ -36,6 +36,10 @@ SKILL.md section 3 has the four layers and what each costs. What each layer does
 
 ## Kept from the first stress test
 
-Kept from the first stress test, where you improvised them and Pantera later ruled "keep" [firn]: the smoke is multispectral, so it blinds thermal sights as well as eyes; a signature spike, a deliberate burst of emissions that pulls a targeting system onto you and off someone else; and in the Cell, a slight overpressure that keeps smoke and gas out, and a wound-care dispenser. None of the four has a figure yet.
+Kept from the first stress test, where you improvised them and Pantera later ruled "keep" [firn]: the smoke is multispectral, so it blinds thermal sights as well as eyes; a signature spike, a deliberate burst of emissions that pulls a targeting system onto you and off someone else; and in the Cell, a slight overpressure that keeps smoke and gas out, and a wound-care dispenser. The spike has figures, by Pantera's ruling [maker]: it holds a lock for 10 s, costs 10 km of range, ends silent running, and cannot fire again for a minute; the ledger books it (`lattice ... spike`). The other three have no figure yet.
+
+The grapple and deep water [maker]:
+- The grapple has 50 m of line and pulls 3 t, about your own weight: enough to drag yourself out of a ditch or recover a car, and a hard pull costs range like a climb. It cannot hold a powered armour. `grapple` does the sum; whether you hold your ground while you pull is the brief's to say.
+- You wade to 1.5 m, bonnet-deep, crawling. Cameras and lidar low on the body are out while you are in it, and the Rime takes longer to re-cool afterwards. How much longer, and how fast you crawl, have no figure. Deeper than that you refuse: amphibious gear is not fitted. `ford` gives the verdict.
 
 `record --fit` is the full fit list: what is fitted, what is not, what has no figure yet.

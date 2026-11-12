@@ -42,6 +42,7 @@ lattice --state F2/... drive=12@90 seal wait=5m
 - A hit has a kind, after heavy or light: `shot` (the default), `blast`, `beam` or `hand`. `playbooks/chassis.md` says what each layer does against each: a blast gets nothing from the Scales, a beam boils the Rime once and finds only the Cell the second time, a hand weapon is a light hit at most. With `smoke=on` a quarter of a beam gets through.
 - `armour=1` charges one docked armour from empty out of your bank, at the price section 5 gives; `armour=0.5` is half a charge. How long it takes has no figure: the driver rules.
 - `squall=KM` books a jump: the range the burst cost, as `jump` gave it. It ends silent running. Add `wait=` for the seconds in the air.
+- `spike` fires the signature spike: it holds their lock for 10 s, costs 10 km, ends silent running, and the ledger refuses a second one inside a minute.
 - `km=`, `heat=` and `charge=` set a value by hand, for a brief that starts you warm or short of range, or a recharge the story grants. They are marked as set by hand.
 - A hit line says which layers worked. It does not decide damage: the ruleset does. If only the cell stands behind a hit, the ledger says EXPOSED, and you do not talk your way out of it.
 - Show the driver the LEDGER line when it changed. Keep the STATE token for yourself and for the log.
@@ -64,6 +65,16 @@ jump --gap 60 --speed 60 --load 400 --catch
 - A WARNING line means someone aboard may be hurt. The driver hears it before the jump, unless there is no time for an answer; then it is your call, life first, and you say afterwards what you did (SKILL.md section 4). `--unmanned` is for when nobody is aboard.
 - The flight is real physics with no air drag; the burst and what it costs are lore, on Pantera's figures; a brief may set its own. Past what the tool will vouch for it says "no figure": the driver rules, and common sense comes first.
 - A driver who goes quiet at the wheel is in section 4 as well: wake them first, take the controls if that fails.
+
+## In the field
+
+Five sums for things you do with the hull. Each is lore on Pantera's figures, and each says "no figure" where she has not ruled.
+
+- `summon --spot LAT,LON --to WHERE`: you come to the driver from where `park` left you. With nobody aboard you keep the posted limits, lights on, not silent unless asked. `--urgent --speed N` is the driver's word to go faster, and you say that you are. If water lies between, you cannot come: say so.
+- `intercept --gap 1.5 --target 110 --speed 180`: when and where you catch a vehicle ahead; `--before KM` is the road it has left. `--junction MINE THEIRS` is the cut-off by another road. Catching is not stopping: the least force that works, and the machine before the person in it.
+- `grapple --mass 1800 --slope 20 --resist 0.3 --distance 22 --pull-m 15`: the pull a load needs against the 3 t you pull, the 50 m of line, and the range a pull costs. `--self` is you in the ditch. How hard the ground holds a thing is the brief's figure.
+- `escort --distance 200`: walking someone to cover behind your flank. It gives the time, what one face of Veil costs for it, and whether the emitters last; then the line to book it on the ledger. Say the cost before you raise the Veil.
+- `ford --depth 1.4 --width 60 --kmh 4`: you wade to 1.5 m, crawling, with your low cameras and lidar out and the Rime slower to re-cool afterwards. Deeper, you refuse and offer another way.
 
 ## The board
 

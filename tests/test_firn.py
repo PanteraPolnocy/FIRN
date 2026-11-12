@@ -1629,9 +1629,10 @@ class DeskTests(unittest.TestCase):
                      "arc", "lead", "board", "armour", "angle", "spot", "scan", "lattice", "triage", "record", "convert", "obd", "lights",
                      "service", "compare", "load", "tow", "fit", "weigh", "measure", "analyse", "pitch", "doppler", "playlist", "listen",
                      "cabin", "lsl", "space", "boot", "session", "ignition", "sheet", "log", "prompt", "check", "checklist", "selftest",
-                     "setup", "rebuild", "tools", "stops", "precondition", "hotcar", "overtake", "mileage"):
+                     "setup", "rebuild", "tools", "stops", "precondition", "hotcar", "overtake", "mileage",
+                     "summon", "intercept", "grapple", "escort", "ford"):
             self.assertRegex(out, r"(?m)^  %s\s" % name)
-        self.assertIn("85 commands.", out)
+        self.assertIn("90 commands.", out)
         self.assertIn("OBJECTS: WEIGHT, SIZE AND ANALYSIS", out)
         self.assertIn("SOUND", out)
 
@@ -2535,7 +2536,7 @@ class BriefTests(unittest.TestCase):
 
     def test_it_leaves_the_toolkit_as_it_found_it(self):
         ok(*self.FULL)
-        self.assertIn("85 commands.", ok("tools"))
+        self.assertIn("90 commands.", ok("tools"))
         self.assertEqual(ok("tools", "--find", "plan", "the", "whole", "journey").splitlines()[1].split()[0], "brief")
 
 
@@ -3157,6 +3158,183 @@ class DailyTests(unittest.TestCase):
             code, _, err = run(*args)
             self.assertNotEqual(code, 0, args)
             self.assertIn(word, err, args)
+
+
+class FieldTests(unittest.TestCase):
+    """The hull at work: summon, intercept, the grapple, an escort, deep water, the spike. Every figure is the maker's."""
+
+    def test_the_rulings_are_on_file(self):
+        lore = core.load_data("lore")
+        self.assertEqual((lore["spike"]["lock_s"], lore["spike"]["km"], lore["spike"]["again_s"]), (10, 10, 60))
+        self.assertEqual((lore["grapple"]["line_m"], lore["grapple"]["pull_kg"]), (50, 3000))
+        self.assertEqual(lore["ford"]["depth_m"], 1.5)
+        for key in ("spike", "grapple", "ford", "unmanned", "recharge"):
+            self.assertTrue(lore[key]["note"].startswith("[maker] "), key)
+        fit = ok("record", "--fit")
+        self.assertIn("FITTED     grapple [maker] - 50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a "
+                      "climb; it cannot hold a powered armour", fit)
+        self.assertIn("FITTED     wading to 1.5 m [maker] - bonnet-deep, crawling", fit)
+        self.assertIn("FITTED     driving with nobody aboard [maker] - within the posted limits, lights on, not silent unless asked", fit)
+        self.assertIn("it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next", fit)
+        self.assertIn("NOT FITTED amphibious or flight gear [sheet]", fit)
+        self.assertIn("UNKNOWN    how much longer the Rime takes to re-cool after wading, and how fast he crawls in water - no figure", fit)
+        for gone in ("grapple reach and strength", "what a signature spike costs"):
+            self.assertNotIn(gone, fit)
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        for line in ("a grapple with 50 m of line and a pull of 3 t. You wade to 1.5 m, crawling, with your low cameras and lidar out "
+                     "while you do. [maker]",
+                     "The spike holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next "
+                     "[maker]. The other three have no figure yet.",
+                     "Nobody aboard. [maker] You keep the posted limits, lights on, and do not run silent unless asked. Faster only when "
+                     "the driver calls it urgent, and you say so."):
+            self.assertIn(line, skill)
+
+    def test_spike_on_the_ledger(self):
+        out = ok("lattice", "silent=on", "spike", "wait=20", "spike", "wait=45", "spike")
+        self.assertIn("SILENT     ended: a spike is a shout on every band", out)
+        self.assertIn("SPIKE      fired at t=0:00.0: it holds their lock until t=0:10.0; -10 km: range 1,500.0 -> 1,490.0 km; ready again "
+                      "at t=1:00.0 [lore]", out)
+        self.assertIn("SPIKE      REFUSED: the last one fired at t=0:00.0 and the next is not ready before t=1:00.0", out)
+        self.assertIn("SPIKE      fired at t=1:05.0: it holds their lock until t=1:15.0; -10 km: range 1,490.0 -> 1,480.0 km", out)
+        state = field(out, "STATE")
+        self.assertTrue(state.endswith("/spike=125"))
+        # the wait for the next one travels in the state token, and drops out of it once served
+        self.assertIn("SPIKE      REFUSED", ok("lattice", "--state", state, "wait=30", "spike"))
+        later = ok("lattice", "--state", state, "wait=60", "spike")
+        self.assertIn("SPIKE      fired at t=2:05.0", later)
+        self.assertNotIn("spike=", field(ok("lattice", "--state", state, "wait=2m"), "STATE"))
+        self.assertIn("SPIKE      REFUSED: a spike needs 10 km of range and 4.0 km is left", ok("lattice", "--km", "4", "spike"))
+        code, _, err = run("lattice", "spike=3")
+        self.assertNotEqual(code, 0)
+        self.assertIn("spike takes no value", err)
+
+    def test_summon(self):
+        spot, to = ("spot", 50.2599, 19.0216, None), geo.parse_point("gliwice")
+        km = geo.haversine_km(spot[1], spot[2], to[1], to[2]) * 1.35
+        out = ok("summon", "--spot", "50.2599,19.0216", "--to", "gliwice")
+        self.assertTrue(field(out, "SUMMON").startswith("the parked spot -> Gliwice: "))
+        self.assertTrue(field(out, "SUMMON").endswith(", ~%s km by road [estimate: straight line x 1.35]" % core.num(km, 1)))
+        self.assertEqual(field(out, "ETA"), "%s at 30 km/h average [city mode]: within the posted limits [lore]" % core.fmt_hm(km / 30.0))
+        self.assertEqual(field(out, "RANGE"), "%s km of 1,500 km [lore] -> %s km left" % (core.num(km, 1), core.num(1500 - km)))
+        self.assertEqual(field(out, "RUNNING"), "lights on, not silent: an empty car that behaves [lore]")
+        self.assertEqual(field(out, "RULE"), "[maker] With nobody aboard he keeps the posted limits, lights on, and does not run silent "
+                         "unless asked. Faster only when the driver calls it urgent, and he says so.")
+        self.assertIn("THERE      about 2026-11-10 ", out)
+        out = ok("summon", "--spot", "50.2599,19.0216", "--to", "gliwice", "--urgent", "--speed", "140", "--silent", "--range-left", "200")
+        secs = km / 140.0 * 3600
+        self.assertEqual(field(out, "ETA"), "%dm%02ds at 140 km/h average: URGENT, above the posted limits on the driver's word, and he "
+                         "says so [lore]" % (secs // 60, round(secs % 60)))
+        self.assertTrue(field(out, "RUNNING").startswith("silent, as asked: "))
+        self.assertEqual(field(out, "RANGE"), "%s km of 200 km [as given] -> %s km left" % (core.num(km, 1), core.num(200 - km)))
+        # water between: he cannot come
+        out = ok("summon", "--spot", "51.5,-0.12", "--to", "paris")
+        self.assertIn("He does not fly, and whether he boards a ferry with nobody aboard has no ruling: he cannot come to you. "
+                      "Go to him: park --find", field(out, "NO ROAD"))
+        self.assertNotIn("ETA", out)
+        for args, word in ((("summon", "--spot", "50.26,19.02", "--to", "gliwice", "--speed", "90"), "--speed belongs to --urgent"),
+                           (("summon", "--spot", "50.26,19.02", "--to", "gliwice", "--urgent"), "--urgent needs --speed"),
+                           (("summon", "--spot", "50.26,19.02", "--to", "gliwice", "--urgent", "--speed", "300"), "no more than his governor, 250")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_intercept(self):
+        out = ok("intercept", "--gap", "1.5", "--target", "110", "--speed", "180")
+        self.assertEqual(field(out, "CATCH"), "in 1m17s: he covers 3.9 km and it covers 2.4 km, closing at 70 km/h [derived: steady speeds]")
+        self.assertEqual(field(out, "RANGE"), "3.9 km of 1,500 km [lore] -> 1,496 km left")
+        self.assertIn("RULE       catching is not stopping.", out)
+        out = ok("intercept", "--gap", "4", "--target", "130", "--speed", "200", "--before", "6")
+        self.assertEqual(field(out, "TOO LATE"), "it has 6 km left and he needs 7.4 km of its road to close the gap")
+        self.assertEqual(field(out, "NEEDS"), "217 km/h to catch it on the line")      # 130 x (1 + 4/6)
+        self.assertEqual(field(ok("intercept", "--gap", "4", "--target", "130", "--speed", "200", "--before", "12"), "IN TIME"),
+                         "4.6 km before it gets there")
+        self.assertIn("more than his governor allows, so not by chasing",
+                      field(ok("intercept", "--gap", "4", "--target", "200", "--speed", "240", "--before", "10"), "NEEDS"))
+        out = ok("intercept", "--gap", "2", "--target", "200", "--speed", "150")
+        self.assertEqual(field(out, "NEVER"), "at 150 km/h he gains nothing on something doing 200: the gap stays 2 km or grows")
+        self.assertNotIn("RANGE", out)
+        out = ok("intercept", "--junction", "12", "9", "--target", "90", "--speed", "140")
+        self.assertEqual(field(out, "CUT OFF"), "he is at the junction 51.4 s before it: there in 5m09s, it in 6m00s [derived: steady speeds]")
+        out = ok("intercept", "--junction", "12", "9", "--target", "90", "--speed", "100")
+        self.assertTrue(field(out, "TOO LATE").startswith("it is through the junction 1m12s before him"))
+        self.assertEqual(field(out, "NEEDS"), "120 km/h to be level with it there")
+        for args, word in ((("intercept", "--target", "100", "--speed", "150"), "give --gap"),
+                           (("intercept", "--gap", "1", "--junction", "3", "2", "--target", "100", "--speed", "150"), "one of them"),
+                           (("intercept", "--gap", "1", "--target", "100", "--speed", "260"), "his governor, 250 km/h [maker]")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_grapple(self):
+        need = 1800 * (math.sin(math.radians(20)) + 0.3 * math.cos(math.radians(20)))
+        out = ok("grapple", "--mass", "1800", "--slope", "20", "--resist", "0.3", "--distance", "22", "--pull-m", "15")
+        self.assertEqual(field(out, "LOAD"), "1,800 kg on 20 deg, the ground holding it with 0.3 of its weight -> a pull of %s kg [derived]" % core.num(need))
+        self.assertEqual(field(out, "HOLDS"), "%s kg of the 3,000 kg he pulls [lore]: %s%% of it" % (core.num(need), core.trim(need / 30.0, 0)))
+        self.assertEqual(field(out, "REACH"), "22 m of the 50 m of line [lore]")
+        cost = need * 9.80665 * 15 / 3.6e6 / (400 / 1500.0)
+        self.assertEqual(field(out, "COST"), "%s km of range for 15 m of pull [derived: the work of the pull against the bank, as a climb "
+                         "would cost]" % core.trim(cost, 2))
+        self.assertIn("it cannot hold a powered armour [lore]", field(out, "RULES"))
+        out = ok("grapple", "--mass", "5000", "--slope", "90", "--distance", "70")
+        self.assertEqual(field(out, "TOO MUCH"), "5,000 kg against the 3,000 kg he pulls [lore]. On this slope and ground the most he moves is 3,000 kg")
+        self.assertEqual(field(out, "REACH"), "OUT OF REACH: 70 m, and the line is 50 m [lore]. Close in by 20 m")
+        out = ok("grapple", "--self", "--load", "260", "--slope", "35", "--resist", "0.2")
+        self.assertTrue(field(out, "LOAD").startswith("3,200 kg (his kerb mass + 260 kg aboard) on 35 deg"))
+        self.assertIn("HOLDS", out)
+        self.assertEqual(field(ok("grapple", "--mass", "3000", "--slope", "90"), "HOLDS"), "3,000 kg of the 3,000 kg he pulls [lore]: 100% of it")
+        for args, word in ((("grapple", "--slope", "10"), "give --mass"), (("grapple", "--self", "--mass", "900"), "leave out --mass"),
+                           (("grapple", "--mass", "900", "--slope", "120"), "0 (level) to 90")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_escort(self):
+        out = ok("escort", "--distance", "200")
+        self.assertEqual(field(out, "ESCORT"), "2m30s with the hull between them and the threat [200 m at 4.8 km/h, route's walking average]")
+        self.assertEqual(field(out, "SHELTER"), "side-on he is 4.85 m long and 1.72 m high; nose-on, 1.98 m wide [sheet]")
+        self.assertEqual(field(out, "VEIL"), "over the left face, 7.5 km a minute: 18.8 km for the 2m30s it is up [lore]")
+        self.assertEqual(field(out, "EMITTERS"), "37.5 s of heat by the end, of 180 s: they hold [lore]")
+        self.assertEqual(field(out, "RANGE"), "18.8 km of 1,500 km [lore] -> 1,481 km left")
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... veil=partial:left wait=150 veil=off")
+        # the ledger agrees with the sum
+        booked = ok("lattice", "veil=partial:left", "wait=150", "veil=off")
+        self.assertIn("range 1,481.2 km", field(booked, "LEDGER"))
+        # one face holds twelve minutes from cold, as the canon says; with heat already on, less
+        self.assertIn("they hold", field(ok("escort", "--minutes", "12"), "EMITTERS"))
+        out = ok("escort", "--minutes", "15", "--heat", "60", "--face", "right")
+        self.assertEqual(field(out, "VEIL"), "over the right face, 7.5 km a minute: 60 km for the 8m00s it is up [lore]")
+        self.assertEqual(field(out, "EMITTERS"), "they trip after 8m00s: the last 7m00s is on the armour alone, and the Veil stays down until "
+                         "they are cool [lore]")
+        out = ok("escort", "--minutes", "8", "--veil", "full")
+        self.assertEqual(field(out, "VEIL"), "full, 30 km a minute: 90 km for the 3m00s it is up [lore]")
+        out = ok("escort", "--minutes", "4", "--veil", "off")
+        self.assertEqual(field(out, "VEIL"), "down: the Scales and the Rime take what comes, and it costs no range [lore]")
+        self.assertNotIn("RANGE", out)
+        code, _, err = run("escort", "--distance", "100", "--minutes", "2")
+        self.assertNotEqual(code, 0)
+        self.assertIn("one of them", err)
+
+    def test_ford(self):
+        out = ok("ford", "--depth", "1.4", "--width", "60", "--kmh", "4")
+        self.assertEqual(field(out, "WADES"), "1.4 m of the 1.5 m he wades [lore]: bonnet-deep, crawling")
+        self.assertEqual(field(out, "CELL"), "the water stands 1.12 m above his floor at full ride height (280 mm): the cell is sealed, "
+                         "the cabin stays dry [lore]")
+        self.assertTrue(field(out, "SENSES").startswith("cameras and lidar low on the body are out while he is in it [lore]"))
+        self.assertEqual(field(out, "AFTER"), "the Rime takes longer to re-cool afterwards [lore]: how much longer has no figure, so the driver rules")
+        self.assertEqual(field(out, "ACROSS"), "60 m in 54 s at 4 km/h [as given]")
+        self.assertIn("WADES      1.5 m of the 1.5 m he wades", ok("ford", "--depth", "1.5"))
+        self.assertEqual(field(ok("ford", "--depth", "0.9", "--width", "30"), "ACROSS"),
+                         "30 m: give --kmh for the time. His crawling pace in water has no figure")
+        out = ok("ford", "--depth", "1.51")
+        self.assertEqual(field(out, "REFUSED"), "1.51 m is deeper than the 1.5 m he wades [lore], and amphibious gear is not fitted [sheet]")
+        self.assertIn("OFFER      another crossing; or, for a narrow channel, a jump: jump --gap WIDTH", out)
+        self.assertNotIn("WADES", out)
+        out = ok("ford", "--depth", "0.2")
+        self.assertEqual(field(out, "SHALLOW"), "0.2 m stays under his floor at full ride height (280 mm): he drives through, and nothing "
+                         "on file is spent")
+        for key in ("WADES", "SENSES", "AFTER"):
+            self.assertNotIn(key, out)
 
 
 class PackageTests(unittest.TestCase):
