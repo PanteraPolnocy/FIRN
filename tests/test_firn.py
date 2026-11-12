@@ -358,9 +358,16 @@ class GroundTests(unittest.TestCase):
         self.assertIn("-33.87,151.21 -> Sydney", out)
 
     def test_ocean_crossing_is_flagged(self):
-        self.assertIn("is there a road all the way", ok("route", "krakow", "jfk"))
+        out = ok("route", "krakow", "jfk")
+        self.assertTrue(field(out, "NO ROAD").startswith("leg 1: Krak"))
+        self.assertIn(" is on the mainland of Europe, Asia and Africa and John F. Kennedy International Airport (JFK) is in North "
+                      "America. No road joins them, so the crossing is by ship, where a ferry runs at all: the figures for this "
+                      "leg are a straight line and not a journey. Try --mode air.", out)
+        self.assertNotIn("LIVE MAP", out)
+        self.assertNotIn("is there a road", out)
         out = ok("route", "waw", "cdg", "jfk", "--mode", "air")
         self.assertNotIn("is there a road", out)
+        self.assertNotIn("NO ROAD", out)
         self.assertIn("km great circle | ~", out)
         self.assertIn("km flown", out)
         self.assertNotIn("LIVE MAP", out)
@@ -402,6 +409,121 @@ class GroundTests(unittest.TestCase):
         self.assertIn("SHIFT      -6 h (west)", out)
         self.assertIn("LEAVE BY   2026-12-18 0", out)
         self.assertIn("door to door", out)
+
+    def test_no_road_between_land_masses(self):
+        for pair, a_land, b_land in (
+                (("dublin", "london"), "on the island of Ireland", "on Great Britain"),
+                (("palermo", "rome"), "on Sicily", "on the mainland of Europe, Asia and Africa"),
+                (("sapporo", "tokyo"), "on Hokkaido", "elsewhere in Japan"),
+                (("hobart", "sydney"), "in Tasmania", "elsewhere in Australia"),
+                (("honolulu", "washington"), "in Hawaii", "in North America"),
+                (("tokyo", "warsaw"), "in Japan", "on the mainland of Europe, Asia and Africa"),
+                (("52.2,21.0", "38.9,-77.0"), "on the mainland of Europe, Asia and Africa", "in North America")):
+            out = ok("route", *pair)
+            self.assertIn(" is %s and " % a_land, field(out, "NO ROAD"), pair)
+            self.assertIn(" is %s. No road joins them" % b_land, field(out, "NO ROAD"), pair)
+            self.assertNotIn("LIVE MAP", out, pair)
+        # one land mass, however far: no warning, and the live map is back
+        for pair in (("warsaw", "lisbon"), ("belfast", "dublin"), ("kuching", "pontianak"), ("lisbon", "singapore"),
+                     ("anchorage", "panama"), ("reggio di calabria", "rome")):
+            out = ok("route", *pair)
+            self.assertNotIn("NO ROAD", out, pair)
+            self.assertNotIn("CROSSING", out, pair)
+            self.assertNotIn("CHECK", out, pair)
+            self.assertIn("LIVE MAP", out, pair)
+        # joined by land, not by road
+        out = ok("route", "panama", "bogota")
+        self.assertIn("NO ROAD    leg 1: North and South America are joined by land but not by road: the Pan-American Highway "
+                      "breaks at the Darien gap, roughly 106 km between Yaviza in Panama and Turbo in Colombia "
+                      "[Wikipedia, Darien Gap]. A vehicle goes round by sea, so the figures for this leg are a straight line "
+                      "and not a journey.", out)
+        # by rail the table claims less, and in the air it has nothing to say
+        self.assertIn("No road joins them, and this table knows of no railway that does", ok("route", "dublin", "london", "--mode", "rail"))
+        self.assertNotIn("NO ROAD", ok("route", "dublin", "london", "--mode", "air"))
+        # a point far from any place on file has no country: the old question still stands for a long leg
+        out = ok("route", "0,-30", "40,-30")
+        self.assertIn("CHECK      leg 1 is 4,448 km in a straight line: is there a road all the way? Try --mode air.", out)
+        self.assertNotIn("NO ROAD", out)
+
+    def test_channel_crossing_is_in_the_total(self):
+        out = ok("route", "london", "paris")
+        self.assertIn("CROSSING   leg 1: Great Britain has no road to the mainland. A car crosses on the shuttle train through "
+                      "the Channel Tunnel, between Folkestone and Calais, or on a ferry. 1h35m is added for it: 35 min on board, "
+                      "after arriving 1 h before departure as the operator asks. The quickest ferry is 90 min on board, and a "
+                      "queue at the terminal or the port is not counted [LeShuttle].", out)
+        km = geo.haversine_km(51.5019, -0.1187, 48.8686, 2.3314) * 1.25
+        wheel = km / 80.0
+        self.assertEqual(field(out, "DRIVE"), "%s at 80 km/h average + 1h35m for the crossing [car mode]" % core.fmt_hm(wheel + 95 / 60.0))
+        self.assertEqual(int(wheel // 2), 2)
+        self.assertEqual(field(out, "BREAKS"), "2 x 15 min = 0h30m (one every 2 h)")       # the crossing earns no break
+        total = round((wheel + 95 / 60.0 + 0.5) * 1.10 * 60) / 60.0
+        self.assertEqual(field(out, "TOTAL"), "%s [estimate]" % core.fmt_hm(total))
+        self.assertIn("LIVE MAP", out)
+        # a train goes through the tunnel; a bicycle does not
+        out = ok("route", "london", "paris", "--mode", "rail")
+        self.assertNotIn("CROSSING", out)
+        self.assertNotIn("NO ROAD", out)
+        self.assertIn("NO ROAD    leg 1: London is on Great Britain", ok("route", "london", "paris", "--mode", "bike"))
+        # a checked leg already holds its crossing
+        a, b = geo.parse_point("london"), geo.parse_point("paris")
+        key, text, hours = geo.land_note(a, b, "car", checked=True)
+        self.assertEqual((key, hours), ("CROSSING", 0.0))
+        self.assertIn("The checked figure for this leg is taken to hold the crossing: 35 min on board", text)
+        self.assertAlmostEqual(geo.estimate_leg(a, b, "car")[2], wheel + 95 / 60.0, places=9)
+        self.assertAlmostEqual(geo.estimate_leg(a, b, "rail")[2], geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.30 / 90.0, places=9)
+
+    def test_the_sea_is_named_wherever_a_leg_is_estimated(self):
+        out = ok("convoy", "anna:dublin", "ben:paris", "cy:leeds", "--to", "london", "--arrive", "2026-11-14 18:00")
+        self.assertIn("NO ROAD    Anna: Dublin is on the island of Ireland and London is on Great Britain.", out)
+        self.assertIn("CROSSING   Ben: Great Britain has no road to the mainland.", out)
+        self.assertIn("on the move + 2 breaks", field(out, "BEN"))
+        self.assertEqual(out.count("NO ROAD") + out.count("CROSSING"), 2)
+        out = ok("tour", "london", "paris", "brussels", "dublin")
+        self.assertIn("CROSSING   leg 1: Great Britain has no road", out)
+        self.assertIn("NO ROAD    leg 3: Paris is on the mainland", out)
+        out = ok("trip", "lhr 2026-12-18 10:40 > cdg 12:55", "--home", "paris", "--onward", "london")
+        self.assertIn("CROSSING   the way to London Heathrow Airport (LHR): Great Britain has no road", out)
+        self.assertIn("CROSSING   onward to London: Great Britain has no road", out)
+        out = ok("brief", "warsaw", "washington")
+        self.assertIn("NO ROAD    leg 1: Warsaw is on the mainland", out)
+
+    def test_land_mass_table(self):
+        table = core.load_data("landmasses")
+        filed = [cc for ccs in table["countries"].values() for cc in ccs]
+        self.assertEqual(len(filed), len(set(filed)))
+        self.assertEqual(len(table["own"]), len(set(table["own"])))
+        self.assertFalse(set(filed) & set(table["own"]))
+        self.assertTrue(set(table["phrases"]) <= set(table["own"]))
+        self.assertTrue(set(table["countries"]) <= set(table["masses"]))
+        for mass, cc, south, north, west, east in table["boxes"]:
+            self.assertIn(mass, table["masses"])
+            self.assertTrue(-90 <= south < north <= 90 and -180 <= west < east <= 180, (mass, cc))
+            self.assertNotEqual(table["countries"].get(mass), [cc], "%s is filed there already" % cc)
+        for pair, link in table["links"].items():
+            a, b = pair.split("|")
+            self.assertEqual([a, b], sorted([a, b]))
+            self.assertIn(a, table["masses"])
+            self.assertIn(b, table["masses"])
+            self.assertIn(link["key"], ("NO ROAD", "CROSSING"))
+            self.assertTrue(set(link["modes"]) | set(link.get("through", ())) <= set(geo.MODES))
+            for tag in re.findall(r"\[([^\]]+)\]", link["text"] + link.get("adds", "")):
+                self.assertIn(tag, table["sources"])
+            self.assertEqual("minutes" in link, "adds" in link)
+        with open(os.path.join(SCRIPTS, "data", "SOURCES.md"), encoding="utf-8") as f:
+            self.assertIn("`landmasses.json`", f.read())
+        # where the boxes end: the island in, the shore across the water out
+        for name, mass in (("honolulu", "hawaii"), ("messina", "sicily"), ("reggio di calabria", "mainland"), ("ushuaia", "tierra-del-fuego"),
+                           ("punta arenas", "south-america"), ("st. john's", "newfoundland"), ("vancouver", "north-america"),
+                           ("victoria_ca", "vancouver-island"), ("powell river", "north-america"), ("belfast", "ireland"),
+                           ("glasgow", "great-britain"), ("christchurch", "nz-south"), ("wellington", "NZ"), ("jayapura", "new-guinea"),
+                           ("kupang", "timor"), ("dili", "timor"), ("jakarta", "ID"), ("copenhagen", "mainland"), ("singapore", "mainland"),
+                           ("anchorage", "north-america"), ("reykjavik", "IS"), ("yuzhno sakhalinsk", "sakhalin"), ("vladivostok", "mainland")):
+            with contextlib.redirect_stdout(io.StringIO()):     # a name two towns share prints an ALSO line
+                point = geo.parse_point(name)
+            self.assertEqual(geo.land_of(point)[0], mass, name)
+        self.assertEqual(geo.land_of(geo.parse_point("reykjavik"))[1], "in Iceland")
+        self.assertEqual(geo.land_of(geo.parse_point("manila"))[1], "in the Philippines")
+        self.assertIsNone(geo.land_of(geo.parse_point("0,-30")))
 
     def test_trip_catches_nonsense(self):
         out = ok("trip", "waw 2026-12-18 06:40 > cdg 06:55", "cdg 07:20 > jfk 13:10")
@@ -2176,6 +2298,11 @@ class JumpTests(unittest.TestCase):
             skill = f.read()
         self.assertIn("The Squall [maker]:", skill)
         self.assertIn("Driver down. [maker]", skill)
+        # the sound of his voice is the maker's: low, dry and close, a faint hum under it, British and measured, from the console
+        self.assertIn("- How it sounds. [maker] Low, dry and close:", skill)
+        for part in ("Standard southern British English at a measured pace", "the low tone of your motors, faint enough to miss",
+                     "it comes from the console", "outside, from the light bar"):
+            self.assertIn(part, skill)
         # the small print moved out of SKILL.md in 2.3.1: it must still ship, and SKILL.md must still point at it
         with open(os.path.join(ROOT, "src", "playbooks", "chassis.md"), encoding="utf-8") as f:
             small_print = f.read()
@@ -2768,7 +2895,7 @@ class PackageTests(unittest.TestCase):
                         self.assertNotIn(b"\t", data, f)
 
     def test_data_files(self):
-        for name in ("zones", "lore", "scenarios", "obd", "lights", "lsl", "rulesets", "checklists", "arms", "countries", "commands"):
+        for name in ("zones", "lore", "scenarios", "obd", "lights", "lsl", "rulesets", "checklists", "arms", "countries", "landmasses", "commands"):
             self.assertTrue(core.load_data(name), name)
         self.assertTrue(os.path.isfile(os.path.join(SCRIPTS, "data", "places.db")))
         self.assertFalse(os.path.exists(os.path.join(SCRIPTS, "data", "places.json")), "the old gazetteer is still in the package")

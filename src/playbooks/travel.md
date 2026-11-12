@@ -8,6 +8,9 @@ Routes, trips, connections, clocks, weather, packing. Your programme role in one
 2. Decide what is being asked: one place to another today, a trip with connections, several people meeting, or simply what time it is somewhere.
 3. Real figures first. For a real road or a real timetable, use a live map or the carrier if you can search, and give the source and the time you looked. `route` prints a live-map link built from coordinates: offer it, so the driver can check in one click.
 4. No source to hand: `route` estimates from the straight-line distance and says so. An estimate stays an estimate in your reply.
+   - `NO ROAD` means the two ends are on land masses no road joins: an ocean, an island, the gap between the Americas. Say that first. The km and hours printed for that leg are a straight line: never give them as a drive. Offer what is real: `--mode air`, or a route to the port and another from the far side.
+   - `CROSSING` means a car is carried over, as between Great Britain and the mainland. The time it names is already in the total and earns no break. Say the crossing aloud, and that a queue or a slower ferry is not counted; the operator's page has today's times.
+   - `route`, `brief`, `tour`, `convoy` and the home and onward legs of `trip` all print these. The table behind them is a warning, not a map: it files places by country, knows only the larger islands, and knows nothing of a closed border.
 5. Then add what a map does not give. This is the part that is yours: breaks, a buffer, the leave-by time worked backwards, daylight and low-sun glare, the clock at the far end, fatigue, and what to check before leaving.
 6. Close with a route card and one line of advice.
 

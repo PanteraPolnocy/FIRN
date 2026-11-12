@@ -43,6 +43,7 @@ _own = None
 _db = None          # the generated gazetteer, data/places.db, opened read-only on first use
 _zones = None
 _looked = {}
+_lands = {}         # land mass of each point looked up so far
 _COORD_RE = re.compile(r"^\s*@?\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")
 _COLS = "p.id, p.key, p.name, p.lat, p.lon, p.zone, p.kind, p.cc, p.pop, p.icao"
 
@@ -444,11 +445,84 @@ def map_link(pts, mode):
     return url
 
 
+# ---- land masses: is there a road between two points at all
+
+def land_of(point):
+    """(land mass, 'on Great Britain') for a parsed point, or None when no country can be put to it.
+    Raw coordinates and the driver's own places borrow the country of the nearest gazetteer place within 100 km."""
+    place = point[3] or {}
+    spot = (round(point[1], 4), round(point[2], 4), place.get("cc"))
+    if spot in _lands:
+        return _lands[spot]
+    cc = place.get("cc")
+    if not cc:
+        hit = nearest(point[1], point[2], 100.0)
+        cc = hit[1].get("cc") if hit else None
+    land = None
+    if cc:
+        table = load_data("landmasses")
+        for mass, box_cc, south, north, west, east in table["boxes"]:
+            if box_cc == cc and south <= point[1] <= north and west <= point[2] <= east:
+                land = (mass, table["masses"][mass], cc)
+                break
+        else:
+            mass = next((m for m, ccs in table["countries"].items() if cc in ccs), None)
+            if mass:
+                land = (mass, table["masses"][mass], cc)
+            elif cc in table["own"]:
+                name = (load_data("countries")["countries"].get(cc) or {}).get("name") or cc
+                land = (cc, table["phrases"].get(cc) or "in " + name, cc)
+            else:
+                land = ("mainland", table["masses"]["mainland"], cc)
+    _lands[spot] = land
+    return land
+
+
+def land_note(p1, p2, mode, checked=False):
+    """None, or (key, text, hours) for a leg whose two ends no road joins: NO ROAD, or CROSSING where a sourced
+    crossing carries vehicles over. hours is what the crossing adds to an estimated leg; a checked leg already holds it."""
+    if mode == "air":
+        return None
+    a, b = land_of(p1), land_of(p2)
+    if not a or not b or a[0] == b[0]:
+        return None
+    link = load_data("landmasses")["links"].get("|".join(sorted((a[0], b[0]))))
+    if link and mode in link.get("through", ()):
+        return None
+    if link and mode in link["modes"]:
+        hours = 0.0 if checked else link.get("minutes", 0) / 60.0
+        text = link["text"]
+        if link.get("minutes"):
+            text += ". %s: %s" % ("The checked figure for this leg is taken to hold the crossing" if checked
+                                  else "%s is added for it" % fmt_hm(hours), link["adds"])
+        elif link["key"] == "NO ROAD":
+            text += ", so the figures for this leg are a straight line and not a journey"
+        return link["key"], text, hours
+    where = [a[1], b[1]]
+    if a[2] == b[2]:        # two pieces of one country: 'on Hokkaido' and 'elsewhere in Japan'
+        for i, land in enumerate((a, b)):
+            if land[0] == land[2]:
+                where[i] = "elsewhere " + land[1]
+    how = ("and this table knows of no railway that does" if mode == "rail"
+           else "so the crossing is by ship, where a ferry runs at all")
+    return ("NO ROAD", "%s is %s and %s is %s. No road joins them, %s: the figures for this leg are a straight line and not a "
+            "journey. Try --mode air" % (p1[0], where[0], p2[0], where[1], how), 0.0)
+
+
+def say_land(p1, p2, mode, tag, lead):
+    """Print the NO ROAD or CROSSING line for a leg, if it earns one. Returns the note, or None."""
+    sea = land_note(p1, p2, mode, tag != "estimate")
+    if sea:
+        rec(sea[0], "%s: %s." % (lead, sea[1]))
+    return sea
+
+
 # ---- route
 
 def estimate_leg(p1, p2, mode, speed=None, road=None):
     """(straight km, travel km, hours, tag, timed) for one leg between parsed points.
-    timed is True when the hours come from a checked figure rather than from an average speed."""
+    timed is True when the hours come from a checked figure rather than from an average speed.
+    Where the leg needs a crossing with a sourced time (land_note), an estimate carries that time."""
     base_speed, base_road, _, _, _, overhead = MODES[mode]
     straight = haversine_km(p1[1], p1[2], p2[1], p2[2])
     leg = known_leg(p1[3], p2[3]) if mode in ("car", "motorway", "city") else None
@@ -462,7 +536,8 @@ def estimate_leg(p1, p2, mode, speed=None, road=None):
         tag = "checked %s%s" % (leg.get("checked", "date unknown"), (", " + leg["source"]) if leg.get("source") else "")
         return straight, km, hours, tag, timed
     km = straight * (road if road is not None else base_road)
-    hours = km / (speed or base_speed) + overhead
+    crossing = land_note(p1, p2, mode)
+    hours = km / (speed or base_speed) + overhead + (crossing[2] if crossing else 0.0)
     return straight, km, hours, "estimate", False
 
 
@@ -500,6 +575,7 @@ def cmd_route(a):
     straight = travel = drive_h = 0.0
     any_estimate = False
     no_road = False
+    cross_h = 0.0
     timed_legs = 0
     for i, (p1, p2) in enumerate(zip(pts, pts[1:]), 1):
         s, km, hours, tag, timed = estimate_leg(p1, p2, a.mode, a.speed, a.road)
@@ -514,11 +590,17 @@ def cmd_route(a):
         rec("LEG %d" % i, "%s -> %s | %s km %s | %s%s km %s | %03.0f %s%s" % (
             p1[0], p2[0], trim(s, 1), "great circle" if air else "straight", "~" if tag == "estimate" else "", num(km), what,
             b, compass(b), "" if tag == "estimate" else " [%s]" % tag))
-        if a.mode in GROUND_MODES and (s > 2000 or abs(p1[2] - p2[2]) > 50):
+        sea = say_land(p1, p2, a.mode, tag, "leg %d" % i)
+        if sea:
+            no_road = no_road or sea[0] == "NO ROAD"
+            cross_h += sea[2]
+        elif (a.mode in GROUND_MODES and not (land_of(p1) and land_of(p2))
+              and (s > 2000 or abs(p1[2] - p2[2]) > 50)):
             no_road = True
             rec("CHECK", "leg %d is %s km in a straight line: is there a road all the way? Try --mode air." % (i, num(s)))
-    breaks = int(drive_h // every) if every > 0 else 0
-    if every > 0 and breaks and abs(drive_h - breaks * every) < 1e-9:
+    wheel_h = drive_h - cross_h     # a crossing is time on the clock but not at the wheel, so it earns no break
+    breaks = int(wheel_h // every) if every > 0 else 0
+    if every > 0 and breaks and abs(wheel_h - breaks * every) < 1e-9:
         breaks -= 1
     break_h = breaks * brk_min / 60.0
     buffer_h = (drive_h + break_h) * buffer_pct / 100.0
@@ -533,6 +615,8 @@ def cmd_route(a):
         rec(label, "%s km [checked legs]" % num(travel))
     verb = {"air": "BLOCK", "rail": "RIDE", "walk": "WALK", "bike": "RIDE"}.get(a.mode, "DRIVE")
     extra = " + %s per leg for taxi, climb and approach" % fmt_hm(overhead) if overhead else ""
+    if cross_h:
+        extra += " + %s for the crossing" % fmt_hm(cross_h)
     if timed_legs == len(legs):
         rec(verb, "%s [checked time for these legs; a snapshot, live traffic will differ]" % fmt_hm(drive_h))
     else:
@@ -922,6 +1006,7 @@ def cmd_trip(a):
         more("%s %s%s km, %s [%s] + %d min margin; be at %s by %s (%d min before departure)" % (
             _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag, a.margin,
             first["p1"][0], be_there.strftime("%H:%M"), checkin))
+        say_land(hp, first["p1"], a.home_mode, tag, "the way to %s" % first["p1"][0])
         door_start = chrono.to_utc(leave)
         set_off, origin, body_tz = leave, "you left %s" % hp[0], leave.tzinfo
         if tired and a.home_mode in fatigue.DRIVEN:
@@ -999,6 +1084,7 @@ def cmd_trip(a):
         rec("ONWARD", "%s  %s" % (chrono.fmt_dt(there), op[0]))
         more("%d min to get out + %s %s%s km, %s [%s]" % (
             exit_min, _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag))
+        say_land(last["p2"], op, a.home_mode, tag, "onward to %s" % op[0])
         door_end = chrono.to_utc(there)
         if tired and a.home_mode in fatigue.DRIVEN:
             drives.append(("the onward drive to %s" % op[0], chrono.add(there, -hours * 3600), there))
@@ -1035,7 +1121,7 @@ def cmd_trip(a):
 
 def register(sub):
     p = command(sub, "ground", "route", cmd_route,
-                "legs, bearings, travel time, breaks, buffer, ETA, daylight, low-sun glare, fatigue, a live-map link, a calendar file",
+                "legs, bearings, travel time, breaks, buffer, ETA, daylight, glare, fatigue, no road (sea, island, ferry), live map, calendar",
                 ['route krakow ktw --depart "2026-11-12 05:30"', 'route krakow ktw --arrive "2026-11-12 04:40"',
                  "route warsaw krakow --mode car --firn", "route waw cdg jfk --mode air",
                  "route 50.2599,19.0216 -33.87,151.21 --mode air",

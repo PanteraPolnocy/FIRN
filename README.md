@@ -6,7 +6,7 @@ The split is deliberate. **The numbers come from maths, and the personality is t
 
 What he is for:
 
-- **Getting somewhere**: one briefing for a whole journey; routes with breaks, a buffer and a leave-by time; the best departure for daylight; a fatigue check; trips with flights and connections; errands in the best order; several people arriving together; what changes across a border; a calendar file; the way back to where the car was left.
+- **Getting somewhere**: one briefing for a whole journey; routes with breaks, a buffer and a leave-by time; the best departure for daylight; a fatigue check; trips with flights and connections; errands in the best order; several people arriving together; a plain warning when the sea is in the way; what changes across a border; a calendar file; the way back to where the car was left.
 - **Keeping time**: any moment across zones, the weeks when two countries' clocks are out of step, shared waking hours, exact spans.
 - **Vehicles**: performance, stopping distances, collisions, gearing, tyres, EV range and charging, fuel cost, fault codes, warning lights; service dates, payload, towing and "will it fit"; vehicles side by side.
 - **Things, pictures and sound**: what a load weighs and what the straps must hold; a size read off a photo; an engine's note, a playlist that ends as you arrive, how long a sound level is safe.

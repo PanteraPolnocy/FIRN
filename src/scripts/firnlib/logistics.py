@@ -7,11 +7,13 @@ from . import chrono, geo, ical
 from .core import command, die, driver, fmt_hm, load_data, more, num, rec, trim
 
 
-def plan_hours(hours, mode):
-    """Travel hours with the mode's breaks and buffer added: (total, breaks, break hours, buffer hours)."""
+def plan_hours(hours, mode, crossing=0.0):
+    """Travel hours with the mode's breaks and buffer added: (total, breaks, break hours, buffer hours).
+    crossing is the part of the hours spent on a shuttle or a ferry: on the clock, but it earns no break."""
     _, _, every, brk_min, buffer_pct, _ = geo.MODES[mode]
-    breaks = int(hours // every) if every > 0 else 0
-    if every > 0 and breaks and abs(hours - breaks * every) < 1e-9:
+    wheel = hours - crossing
+    breaks = int(wheel // every) if every > 0 else 0
+    if every > 0 and breaks and abs(wheel - breaks * every) < 1e-9:
         breaks -= 1
     break_h = breaks * brk_min / 60.0
     buffer_h = (hours + break_h) * buffer_pct / 100.0
@@ -37,7 +39,8 @@ def cmd_convoy(a):
                 die("mode after @ must be one of: %s" % ", ".join(sorted(geo.MODES)))
         start = geo.parse_point(place.strip())
         s, km, hours, tag, _ = geo.estimate_leg(start, dest, mode)
-        total, breaks, break_h, buffer_h = plan_hours(hours, mode)
+        sea = geo.land_note(start, dest, mode, tag != "estimate")
+        total, breaks, break_h, buffer_h = plan_hours(hours, mode, sea[2] if sea else 0.0)
         leave = chrono.to_utc(chrono.add(target, -total * 3600)).astimezone(geo.place_tz(start, a.tz))
         parties.append({"name": name.strip(), "start": start, "km": km, "hours": hours, "total": total, "breaks": breaks,
                         "leave": leave, "tag": tag, "mode": mode})
@@ -51,6 +54,7 @@ def cmd_convoy(a):
             p["start"][0], chrono.fmt_dt(p["leave"]), "~" if p["tag"] == "estimate" else "", num(p["km"]), fmt_hm(p["hours"]),
             " + %d break%s" % (p["breaks"], "" if p["breaks"] == 1 else "s") if p["breaks"] else "", fmt_hm(p["total"]),
             p["tag"], p["mode"]))
+        geo.say_land(p["start"], dest, p["mode"], p["tag"], p["name"].title())
     if len(parties) > 1:
         first, last = parties[0], parties[-1]
         gap = (chrono.to_utc(last["leave"]) - chrono.to_utc(first["leave"])).total_seconds() / 3600.0

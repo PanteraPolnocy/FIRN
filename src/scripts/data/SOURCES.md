@@ -9,6 +9,7 @@ Every table the tools read is in this folder. Nothing is fetched while the tools
 | `places.db` | airports and their codes | OurAirports (ourairports.com) | public domain |
 | `places.db`, `zones.json` | time zones | IANA Time Zone Database | public domain |
 | `countries.json` | which side they drive on, currency, plugs, numbers | Wikidata | CC0 |
+| `landmasses.json` | which land mass a place is on, and where a road does not join two of them | written for this skill from the map; the Channel crossing from LeShuttle (leshuttle.com), the break in the Pan-American Highway from Wikipedia, "Darien Gap" | written for this skill |
 | `lsl.json` | the Second Life vehicle reference | the Second Life wiki and Linden Lab's published LSL definitions | compiled reference |
 | `materials.json` | typical densities | handbook values; the fuel ranges are those of EN 228 and EN 590 | written for this skill |
 | `references.json` | things of a standard size | the standard or the issuer named beside each entry | written for this skill |

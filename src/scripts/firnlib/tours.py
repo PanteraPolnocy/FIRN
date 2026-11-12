@@ -113,6 +113,7 @@ def cmd_tour(a):
             if k < len(order) - 1:
                 clock = chrono.add(clock, a.stop_min * 60)
         rec("LEG %d" % k, line)
+        geo.say_land(pts[x], pts[y], a.mode, tag, "leg %d" % k)
     visits = max(0, len(order) - 2)
     stop_h = visits * a.stop_min / 60.0
     rec("TOTAL", "%s%s km, %s on the move%s = %s [%s]" % (
