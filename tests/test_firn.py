@@ -37,12 +37,21 @@ os.environ["FIRN_OUTPUTS"] = OUTPUTS
 
 import firn  # noqa: E402
 import firnlib  # noqa: E402
-from firnlib import (agenda, armour, arms, board, chrono, core, desk, dice, dynamics, geo, haul, ical, index, lattice,  # noqa: E402
-                     metar, rebuild, sensors, service, sky, sl, sound, things, tours)
+from firnlib import (agenda, armour, arms, board, chrono, core, desk, dice, dynamics, fatigue, geo, haul, ical, index,  # noqa: E402
+                     lattice, metar, rebuild, sensors, service, sky, sl, sound, things, tours)
 
 UTC = timezone.utc
 KRAKOW = (50.0619, 19.9581)
 WARSAW = (52.2519, 20.9981)
+
+
+def zone_builder():
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    try:
+        import build_zones
+    finally:
+        sys.path.pop(0)
+    return build_zones
 
 
 def use_personal(path):
@@ -150,24 +159,107 @@ class ClockTests(unittest.TestCase):
     def test_zone_table_matches_tz_database(self):
         """The generated table must agree with the real tz database wherever both exist."""
         try:
-            from zoneinfo import ZoneInfo
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
             ZoneInfo("Europe/Warsaw")
         except Exception:
             self.skipTest("no tz database on this interpreter")
+        here, made_from = chrono._machine_release(), chrono._zones()["source"].split()[-1]
+        behind = chrono._stale()        # zones changed in releases newer than this machine's: its database has those wrong
+        if behind is None:
+            self.skipTest("this machine's tz database (%s) is older than the table's record of changes reaches" % here)
+        hint = ""
+        if chrono._RELEASE_RE.match(here) and chrono._RELEASE_RE.match(made_from) and here > made_from:
+            hint = "; the table is from %s and this machine has %s: run  python tools/build_zones.py" % (made_from, here)
         checked = 0
         names = sorted(chrono._zones()["zones"])
         self.assertGreater(len(names), 400)
         for key in names:
-            real = ZoneInfo(key)
+            if key.lower() in behind:
+                continue
+            try:
+                real = ZoneInfo(key)
+            except ZoneInfoNotFoundError:
+                continue                # some systems install no files for the old alias names
             mine = chrono.table_tz(key)
             t = datetime(2024, 1, 1, tzinfo=UTC)
             end = datetime(2031, 1, 1, tzinfo=UTC)
             while t < end:
                 checked += 1
                 if t.astimezone(real).utcoffset() != t.astimezone(mine).utcoffset():
-                    self.fail("%s differs from the tz database at %s" % (key, t.isoformat()))
+                    self.fail("%s differs from the tz database at %s%s" % (key, t.isoformat(), hint))
                 t += timedelta(hours=31)
         self.assertGreater(checked, 500000)
+
+    def test_zone_builder_reads_the_old_names_from_links(self):
+        """Some systems install no files for the old alias names; the builder must still list them."""
+        try:
+            import zoneinfo
+            zoneinfo.ZoneInfo("Europe/Warsaw")
+        except Exception:
+            self.skipTest("no tz database on this interpreter")
+        build = zone_builder()
+        real = build.database()[0]
+        folder = tempfile.mkdtemp(dir=OUTPUTS)
+        for name in ("Europe/Warsaw", "Asia/Kolkata", "Etc/UTC"):
+            os.makedirs(os.path.join(folder, name.split("/")[0]), exist_ok=True)
+            shutil.copy(os.path.join(real, *name.split("/")), os.path.join(folder, *name.split("/")))
+        with open(os.path.join(folder, "tzdata.zi"), "w") as f:
+            f.write("# version 2031c\n# dataform main\nL Asia/Kolkata Asia/Calcutta\nL Asia/Calcutta Asia/Older\n"
+                    "L Etc/UTC UTC\nL Etc/UTC Etc/Zulu\nL Europe/Gone Europe/Lost\n")
+        zoneinfo.reset_tzpath(to=[folder])
+        try:
+            self.assertEqual(build.database()[:2], (folder, "2031c"))
+            self.assertEqual(build.zone_sources(), {"Europe/Warsaw": "Europe/Warsaw", "Asia/Kolkata": "Asia/Kolkata",
+                                                    "Asia/Calcutta": "Asia/Kolkata", "Asia/Older": "Asia/Kolkata", "UTC": "Etc/UTC"})
+        finally:
+            zoneinfo.reset_tzpath()
+
+    def test_zone_builder_keeps_a_record_of_changes(self):
+        trail = zone_builder().trail
+        old = {"source": "IANA tz database 2026e", "window": [2000, 2046], "changed": [["2026d", "2026e", ["A/B"]]]}
+        self.assertEqual(trail(old, "2026f", [2000, 2046], ["C/D"]), [["2026d", "2026e", ["A/B"]], ["2026e", "2026f", ["C/D"]]])
+        self.assertEqual(trail(old, "2026f", [2000, 2046], []), old["changed"])     # nothing changed inside the window
+        self.assertEqual(trail(old, "2026e", [2000, 2046], []), old["changed"])     # the same release again
+        for release, window in (("2026f", [1990, 2046]), ("2026d", [2000, 2046]), ("", [2000, 2046])):
+            self.assertEqual(trail(old, release, window, ["C/D"]), [])               # the trail is broken: it starts again
+        self.assertEqual(trail({}, "2026f", [2000, 2046], []), [])
+        data = chrono._zones()
+        steps = data["changed"]
+        self.assertEqual(steps[0], ["2026d", "2026e", ["America/Rainy_River", "America/Winnipeg"]])
+        self.assertEqual([step[1] for step in steps], sorted(step[1] for step in steps))
+        self.assertLessEqual(steps[-1][1], data["source"].split()[-1])
+        for was, now, names in steps:
+            self.assertLess(was, now)
+            self.assertTrue(names and all(n in data["zones"] for n in names), names)
+
+    def test_table_is_read_where_the_tz_database_is_behind(self):
+        """Zones that changed in a release newer than the machine's tz database come from the table; the rest do not."""
+        try:
+            from zoneinfo import ZoneInfo
+            ZoneInfo("Europe/Warsaw")
+        except Exception:
+            self.skipTest("no tz database on this interpreter")
+        real, forced = chrono._machine_release, os.environ.pop("FIRN_TZ", None)
+        try:
+            for here, winnipeg, warsaw, says in (("2026d", True, False, "tz database 2026d, and the built-in zone table"),
+                                                 ("2026c", True, True, "(this machine's tz database is older, 2026c)"),
+                                                 ("2099z", False, False, "tz database"), ("", False, False, "tz database")):
+                chrono._machine_release = lambda: here
+                chrono._zi_state.clear()
+                chrono._tz_cache.clear()
+                self.assertEqual(isinstance(chrono.get_tz("America/Winnipeg"), chrono.TableTZ), winnipeg, here)
+                self.assertEqual(isinstance(chrono.get_tz("america/rainy_river"), chrono.TableTZ), winnipeg, here)
+                self.assertEqual(isinstance(chrono.get_tz("Europe/Warsaw"), chrono.TableTZ), warsaw, here)
+                self.assertFalse(isinstance(chrono.get_tz("Etc/GMT+5"), chrono.TableTZ), here)     # not a name the table lists
+                source = chrono.tz_source()
+                self.assertTrue(source.endswith(says) if warsaw or not winnipeg else source.startswith(says), source)
+                self.assertEqual("changed since" in source, winnipeg and not warsaw, source)
+        finally:
+            chrono._machine_release = real
+            if forced is not None:
+                os.environ["FIRN_TZ"] = forced
+            chrono._zi_state.clear()
+            chrono._tz_cache.clear()
 
     def test_zone_table_fold_and_gap(self):
         tz = chrono.table_tz("Europe/Warsaw")
@@ -180,11 +272,13 @@ class ClockTests(unittest.TestCase):
         self.assertEqual((back.hour, back.fold), (2, 1))
 
     def test_zone_table_is_current(self):
-        """Two zones stopped changing their clocks in 2026: a hand-written rule table had this wrong."""
-        for key, off in (("America/Vancouver", -7), ("America/Edmonton", -6)):
+        """Three zones stopped changing their clocks in 2026 and Cuba skipped its autumn change (tz 2026b to 2026f):
+        a hand-written rule table had this wrong, and so has a table built from an older release."""
+        old = "the zone table is behind tz 2026f: run  python tools/build_zones.py  where the tz database is that or newer"
+        for key, off in (("America/Vancouver", -7), ("America/Edmonton", -6), ("America/Winnipeg", -5), ("America/Havana", -4)):
             tz = chrono.table_tz(key)
-            self.assertEqual(chrono.offset_hours(datetime(2026, 12, 1, 12, tzinfo=UTC).astimezone(tz)), off)
-            self.assertEqual(chrono.offset_hours(datetime(2025, 12, 1, 12, tzinfo=UTC).astimezone(tz)), off - 1)
+            self.assertEqual(chrono.offset_hours(datetime(2026, 12, 1, 12, tzinfo=UTC).astimezone(tz)), off, "%s: %s" % (key, old))
+            self.assertEqual(chrono.offset_hours(datetime(2025, 12, 1, 12, tzinfo=UTC).astimezone(tz)), off - 1, key)
 
     def test_outside_the_table_window_is_flagged(self):
         tz = chrono.table_tz("Europe/Warsaw")
@@ -1722,6 +1816,142 @@ class WindowAndTourTests(unittest.TestCase):
         self.assertEqual(run("halfway", "anna", "bob:warsaw")[0], 2)
 
 
+class FatigueTests(unittest.TestCase):
+    def test_low_hours_follow_the_wall_clock(self):
+        tz = chrono.get_tz("Europe/Warsaw")
+        win = fatigue.parse_window("00:00-06:00")
+        self.assertEqual(win, (0, 360))
+        # twelve hours from 21:00 take in the whole of the night's low hours: six of them on an ordinary night,
+        # seven on the night the clocks go back, five on the night they go forward
+        for day, want in (((2026, 11, 11), 360.0), ((2026, 10, 24), 420.0), ((2026, 3, 28), 300.0)):
+            dep, _ = chrono.localize(datetime(day[0], day[1], day[2], 21, 0), tz)
+            self.assertEqual(fatigue.low_minutes(dep, 12, win), want, day)
+        day_run, _ = chrono.localize(datetime(2026, 11, 11, 7, 0), tz)
+        self.assertEqual(fatigue.low_minutes(day_run, 12, win), 0.0)
+        # a window through midnight, and a journey long enough to meet two nights
+        late = fatigue.parse_window("22:30-05:00")
+        self.assertEqual(fatigue.label(late), "22:30-05:00")
+        self.assertEqual(fatigue.length_h(late), 6.5)
+        dep, _ = chrono.localize(datetime(2026, 11, 11, 21, 0), tz)
+        self.assertEqual(fatigue.low_minutes(dep, 4, late), 150.0)
+        self.assertEqual(fatigue.low_minutes(dep, 36, win), 720.0)
+        found = fatigue.spans(dep, dep + timedelta(hours=36), tz, win)
+        self.assertEqual(len(found), 2)
+        # the clock that counts is the one the journey starts by, whatever zone the moments are handed over in
+        self.assertEqual(fatigue.low_minutes(dep.astimezone(UTC).astimezone(tz), 12, win), 360.0)
+
+    def test_route_through_the_night(self):
+        out = ok("route", "krakow", "gdansk", "--depart", "2026-12-05 21:00", "--fatigue")
+        self.assertIn("FATIGUE    6h00m of this 9h11m journey falls in the low hours: 00:00-06:00 on the clock at the start "
+                      "(Europe/Warsaw), when alertness is lowest [derived; Highway Code rule 91]", out)
+        self.assertIn("LOW HOURS  00:00-06:00 Sun, about km 199 to 596 of 608", out)
+        self.assertIn("leave by 14:49 Sat and be there before 00:00, or set off at 06:00 Sun or later", out)
+        self.assertIn("if sleepy, stop somewhere safe", out)
+        self.assertNotIn("AT WHEEL", out)
+        self.assertNotIn("BREAKS     thinner", out)
+        self.assertEqual(desk.check_text(out), [])
+        # the advice holds: the departure it names arrives exactly as the low hours begin, and is clear of them
+        early = ok("route", "krakow", "gdansk", "--depart", "2026-12-05 14:49", "--fatigue")
+        self.assertIn("ARRIVE     2026-12-06 00:00 Sun", early)
+        self.assertIn("FATIGUE    clear of the low hours, 00:00-06:00 on the clock at the start [derived; Highway Code rule 91]", early)
+        self.assertNotIn("LOW HOURS", early)
+        self.assertIn("FATIGUE    clear", ok("route", "krakow", "gdansk", "--depart", "2026-12-06 06:00", "--fatigue"))
+        # without the flag nothing changes
+        self.assertNotIn("FATIGUE", ok("route", "krakow", "gdansk", "--depart", "2026-12-05 21:00"))
+
+    def test_route_fixed_arrival_and_own_hours(self):
+        out = ok("route", "krakow", "ktw", "--arrive", "2026-11-12 04:40", "--fatigue")
+        self.assertIn("FATIGUE    all 1h20m of this journey falls in the low hours", out)
+        self.assertIn("LOW HOURS  03:20-04:40 Thu, from the first kilometre to the last", out)
+        self.assertIn("the arrival is fixed, so the hour is too", out)
+        self.assertNotIn("to stay clear of them", out)
+        # hours of the driver's own are used, and said to be theirs; --low-hours alone asks for the check
+        out = ok("route", "krakow", "warsaw", "--depart", "2026-11-12 21:00", "--low-hours", "22:30-05:00")
+        self.assertIn("falls in the low hours: 22:30-05:00 on the clock at the start (Europe/Warsaw) [derived; low hours as given]", out)
+        self.assertNotIn("alertness is lowest", out)
+        self.assertIn("or set off at 05:00 Fri or later", out)
+
+    def test_long_day_and_thin_breaks(self):
+        out = ok("route", "lisbon", "madrid", "paris", "berlin", "warsaw", "--mode", "motorway", "--depart", "2026-11-12 06:00", "--fatigue")
+        self.assertIn("on the clock at the start (Europe/Lisbon)", out)
+        self.assertIn(" on legs 2 to 3, about km ", out)
+        self.assertIn("too long to fit between one night's low hours and the next: break it with an overnight stop", out)
+        self.assertRegex(out, r"AT WHEEL   \d+h\d\dm of driving with no night's stop: more than the 9 h a professional driver may drive "
+                              r"in a day in the EU \[Regulation \(EC\) No 561/2006, art\. 6\]")
+        out = ok("route", "krakow", "gdansk", "--depart", "2026-12-05 08:00", "--break-every", "4", "--fatigue")
+        self.assertIn("BREAKS     thinner than advised: at least 15 minutes after every 2 hours of driving [Highway Code rule 91]", out)
+        self.assertNotIn("AT WHEEL", out)
+        self.assertNotIn("BREAKS     thinner", ok("route", "krakow", "katowice", "--depart", "08:00", "--break-every", "0", "--fatigue"))
+
+    def test_window_weighs_the_low_hours_first(self):
+        out = ok("route", "krakow", "gdansk", "--window", "18:00-23:00", "--date", "2026-12-05", "--step", "60", "--fatigue")
+        self.assertIn("BEST       depart 18:00, arrive 03:11 | night 9h11m, twilight 0h00m, low sun ahead 0h00m, low hours 3h11m", out)
+        self.assertIn("WORST      depart 21:00", out)
+        self.assertIn("LOW HOURS  00:00-03:11 Sun", out)
+        # weighed for light alone, the same window sends the driver through the whole of the night for a little dawn at the end
+        plain = ok("route", "krakow", "gdansk", "--window", "18:00-23:00", "--date", "2026-12-05", "--step", "60")
+        self.assertIn("BEST       depart 23:00, arrive 08:11 | night 8h02m", plain)
+        self.assertNotIn("low hours", plain)
+        # where nothing in the window touches the low hours, the flag changes nothing and says so
+        out = ok("route", "krakow", "katowice", "--window", "09:00-12:00", "--date", "2026-06-20", "--fatigue")
+        self.assertIn("every departure in the window is the same for light and the low hours: the earliest is taken", out)
+        self.assertIn("DEPART     2026-06-20 09:00", out)
+
+    def test_trip_reads_the_driven_legs_on_the_body_clock(self):
+        out = ok("trip", "ktw 2026-12-18 06:40 > cdg 08:55", "cdg 10:50 > msp 13:05", "--home", "krakow", "--onward", "rochester_us",
+                 "--fatigue")
+        self.assertIn("FATIGUE    2 drives checked on the body clock, the zone the trip starts in (Europe/Warsaw): low hours 00:00-06:00", out)
+        self.assertIn("(KTW): 03:12-04:25 Fri body clock, all 1h13m of it in the low hours", out)
+        self.assertIn("the onward drive to Rochester, Minnesota: 20:50-22:35 Fri body clock (13:50-15:35 local), clear", out)
+        self.assertIn("AWAKE      the onward drive to Rochester, Minnesota ends 19h23m after you left Krak\u00f3w, and you were up before "
+                      "that: after 17 h awake a driver is about as slowed as at 0.05% blood alcohol [NIOSH]", out)
+        self.assertEqual(desk.check_text(out), [])
+        # a westbound afternoon flight: the hire car at the far end is driven past the body's midnight
+        out = ok("trip", "waw 2026-12-18 12:40 > jfk 16:05", "--home", "warsaw", "--onward", "philadelphia", "--fatigue")
+        self.assertIn("the onward drive to Philadelphia: 22:50-00:59 Fri body clock (16:50-18:59 local), 0h59m of its 2h09m in the low hours", out)
+        self.assertNotIn("AWAKE", out)
+        self.assertNotIn("FATIGUE", ok("trip", "waw 2026-12-18 12:40 > jfk 16:05", "--home", "warsaw", "--onward", "philadelphia"))
+
+    def test_trip_rest_and_nothing_driven(self):
+        # a night in between is a chance to sleep: the count of hours awake starts again, and a leg marked 'drive' is checked
+        out = ok("trip", "waw 2026-12-18 12:40 > jfk 16:05", "new_york 2026-12-19 09:00 > boston 13:30 drive", "--home", "warsaw", "--fatigue")
+        self.assertIn("FATIGUE    2 drives checked", out)
+        self.assertIn("the drive from New York to Boston: 15:00-19:30 Sat body clock (09:00-13:30 local), clear", out)
+        self.assertNotIn("AWAKE", out)
+        # the same two legs with no night between them
+        out = ok("trip", "waw 2026-12-18 12:40 > jfk 16:05", "new_york 2026-12-18 18:00 > boston 22:30 drive", "--home", "warsaw", "--fatigue")
+        self.assertIn("AWAKE      the drive from New York to Boston ends 18h14m after you left Warsaw", out)
+        self.assertIn("00:00-04:30 Sat body clock (18:00-22:30 local), all 4h30m of it in the low hours", out)
+        out = ok("trip", "krakow 08:02 > warsaw 10:28 rail", "--date", "2026-11-20", "--fatigue")
+        self.assertIn("FATIGUE    nothing to check: nobody drives on this trip as given", out)
+
+    def test_refusals(self):
+        for args, word in ((("route", "krakow", "warsaw", "--fatigue"), "needs a time"),
+                           (("route", "krakow", "warsaw", "--mode", "rail", "--depart", "21:00", "--fatigue"), "drive yourself"),
+                           (("route", "waw", "cdg", "--mode", "air", "--depart", "21:00", "--fatigue"), "drive yourself"),
+                           (("route", "krakow", "warsaw", "--depart", "21:00", "--low-hours", "06:00-06:00"), "two different times"),
+                           (("route", "krakow", "warsaw", "--depart", "21:00", "--low-hours", "08:00-23:00"), "most of the day"),
+                           (("route", "krakow", "warsaw", "--depart", "21:00", "--low-hours", "night"), "two clock times"),
+                           (("trip", "waw 12:40 > jfk 16:05", "--low-hours", "25:00-06:00"), "out of range")):
+            code, _, err = run(*args)
+            self.assertEqual(code, 2, args)
+            self.assertIn(word, err, args)
+
+    def test_calendar_entry_carries_the_warning(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = ok("route", "krakow", "ktw", "--arrive", "2026-11-12 04:40", "--fatigue", "--ics", d)
+            with open(field(out, "CALENDAR"), "rb") as f:
+                flat = f.read().decode("utf-8").replace("\r\n ", "")
+            self.assertIn("Fatigue: 1h20m of this journey falls in the low hours\\, 00:00-06:00 on the clock at the start.", flat)
+            out = ok("route", "krakow", "ktw", "--arrive", "2026-11-12 12:40", "--fatigue", "--ics", d)
+            with open(field(out, "CALENDAR"), "rb") as f:
+                self.assertNotIn(b"Fatigue:", f.read())
+
+    def test_tools_find_names_route(self):
+        for question in ("driving tired overnight", "fatigue"):
+            self.assertEqual(ok("tools", "--find", *question.split()).splitlines()[1].split()[0], "route", question)
+
+
 class MetarTests(unittest.TestCase):
     def test_winter_report(self):
         out = ok("metar", "EPKT 101300Z 27012G22KT 9999 -SN BKN030 OVC045 M01/M03 Q1015 NOSIG")
@@ -2174,6 +2404,8 @@ class PackageTests(unittest.TestCase):
         err = io.StringIO()
         with contextlib.redirect_stdout(Closed()), contextlib.redirect_stderr(err):
             code = firn.main(["tools"])
+            self.assertEqual(getattr(sys.stdout, "name", None), os.devnull)
+            sys.stdout.close()          # main() left stdout on the null device; in a test nothing else closes it
         sys.stdout = sys.__stdout__
         self.assertEqual(code, 0)
         self.assertEqual(err.getvalue(), "")
@@ -2716,6 +2948,14 @@ class PublishedFiguresTests(unittest.TestCase):
         mats = core.load_data("materials")["materials"]
         self.assertEqual((mats["petrol"]["low"], mats["petrol"]["high"]), (720, 775))
         self.assertEqual((mats["diesel"]["low"], mats["diesel"]["high"]), (815, 845))
+
+    def test_fatigue_figures(self):
+        """Read from their sources on 12 November 2026: the Highway Code (rule 91), Regulation (EC) No 561/2006 (article 6), NIOSH."""
+        self.assertEqual((fatigue.LOW_HOURS, fatigue.BREAK_EVERY_H, fatigue.BREAK_MIN), ("00:00-06:00", 2.0, 15))
+        self.assertEqual(fatigue.DAY_AT_WHEEL_H, 9.0)
+        self.assertEqual((fatigue.AWAKE_H, fatigue.AWAKE_LONG_H), (17.0, 24.0))
+        self.assertEqual(fatigue.REST_H, 7.0)                       # a house rule, not a published figure
+        self.assertEqual(fatigue.DRIVEN, ("car", "motorway", "city"))
 
     def test_reference_sizes(self):
         refs = core.load_data("references")["references"]

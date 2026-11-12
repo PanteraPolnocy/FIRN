@@ -28,6 +28,8 @@ Routes, trips, connections, clocks, weather, packing. Your programme role in one
 | "Put it in my calendar" | add `--ics auto` to the `route`, `trip`, `convoy` or `series` you just ran |
 | "Will it all go in the car?" | `load`, `tow`, `fit` (playbooks/garage.md) |
 | "When is the best time to leave?" | `route home gdansk --window 05:00-11:00 --before-dark` |
+| "We will drive through the night" | `route home gdansk --depart 21:00 --fatigue` |
+| "An early flight, then a hire car at the far end" | add `--fatigue` to the `trip` |
 | "Five errands, what order?" | `tour home bakery post pharmacy --loop` |
 | "Where shall we all meet?" | `halfway anna:krakow bob:warsaw carol:wroclaw`, then `convoy` for the winner |
 | "Every Saturday at noon their time" | `series sat 12:00 --from slt --count 8` |
@@ -68,6 +70,7 @@ When a live map or the driver gives a real distance and time for a run they make
 - Connections under the minimum are flagged TIGHT. The default is 60 minutes. Airports publish their own minimum connection times: look it up for the real airport and pass `--min-connect`.
 - `--home` adds the drive and the leave-by time. Check-in is 120 minutes for a flight and 20 for a train unless you set `--checkin`.
 - SHIFT is the body-clock line: how many hours the day has moved, what the driver's body will think the time is on arrival, and a rule-of-thumb for adjusting.
+- `--fatigue` reads the driven legs on that same body clock: see "Stops, food and fatigue".
 - Timetable times are as given. Say so, and say to check them with the carrier.
 
 ## When to leave, in what order, and where to meet
@@ -113,6 +116,10 @@ A METAR is an airport's own weather report, published as text every half hour or
 ## Stops, food and fatigue
 
 - A break every two hours, fifteen minutes out of the seat. `route` plans them.
+- `--fatigue` on a `route` that is driven (car, motorway or city mode, with a time) checks the clock. FATIGUE says how much of the journey falls in the low hours, midnight to 06:00 on the clock at the start; LOW HOURS says when and roughly where; the line under it says how to stay clear: the latest departure that arrives before them, or the earliest one after. With `--arrive` the hour is fixed, and it says that instead. With `--window`, time in the low hours is weighed before light. AT WHEEL appears when the driving alone passes nine hours with no night's stop, and BREAKS when the breaks were set thinner than fifteen minutes every two hours.
+- `--fatigue` on a `trip` checks only the legs somebody drives: the run from `--home`, a leg marked `drive`, the run to `--onward`. It reads them on the body clock, the zone the trip started in, because that is the clock the driver's body is still keeping after a flight. AWAKE appears when a drive ends seventeen hours or more after setting off; a wait of seven hours or more between legs is taken as a chance to sleep, and the count starts again there.
+- Each of those lines names its source: the Highway Code's rule 91 for the low hours and the breaks, the EU's limit for professional drivers for the nine hours, NIOSH for the hours awake. They are published benchmarks, not rules that bind a private driver, and not a reading of the driver: the tool knows the clock, not how anyone slept. Say so if it matters. `--low-hours 22:30-05:00` moves the window for someone who keeps other hours, and the line then says the hours are theirs.
+- Run it without being asked when a drive leaves or arrives between midnight and 06:00, or follows a long flight. Report what it found in one line, offer the way round it, then respect the answer: one warning, as with any fatigue note.
 - Food stops fit the driver's diet (SKILL.md section 7). If you do not know it, ask once.
 - If `boot` says it is late at home, or `session --since` says the conversation has run long, say so once, like a fatigue warning, then respect the answer.
 

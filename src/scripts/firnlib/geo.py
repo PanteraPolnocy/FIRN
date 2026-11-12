@@ -483,6 +483,14 @@ def cmd_route(a):
         die("--before-dark works on a window of departures: add --window 06:00-12:00")
     if a.ics and not (a.depart or a.arrive or a.window):
         die("a calendar entry needs a time: add --depart, --arrive or --window")
+    low_win, low_min = None, 0.0
+    if a.fatigue or a.low_hours:
+        from . import fatigue
+        if a.mode not in fatigue.DRIVEN:
+            die("--fatigue is for a journey you drive yourself: car, motorway or city mode")
+        if not (a.depart or a.arrive or a.window):
+            die("--fatigue checks the clock, so it needs a time: add --depart, --arrive or --window")
+        low_win = fatigue.parse_window(a.low_hours or fatigue.LOW_HOURS)
     every = a.break_every if a.break_every is not None else base_every
     brk_min = a.break_min if a.break_min is not None else base_min
     buffer_pct = a.buffer if a.buffer is not None else base_buffer
@@ -541,7 +549,7 @@ def cmd_route(a):
     start_tz = place_tz(pts[0], a.tz)
     end_tz = place_tz(pts[-1], a.tz)
     if a.window:
-        dep = pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky)
+        dep = pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky, low_win)
         arr = chrono.to_utc(chrono.add(dep, total_h * 3600)).astimezone(end_tz)
     elif a.depart:
         dep, note = chrono.parse_when(a.depart, start_tz)
@@ -564,6 +572,8 @@ def cmd_route(a):
                     p[0], "home time" if chrono.home_is_set() else "UTC"))
                 break
         _light(a, legs, dep, total_h, sky)
+        if low_win:
+            low_min = fatigue.route_report(legs, dep, total_h, drive_h, every, brk_min, low_win, bool(a.arrive))
     if a.firn:
         full = load_data("lore")["chassis"]["range_km"]
         left = full - travel
@@ -590,6 +600,9 @@ def cmd_route(a):
         lines.append(how + ".")
         lines.append("Distance and time are estimates: check a live map before relying on them." if any_estimate
                      else "Road figures were checked on the date given; live traffic will differ.")
+        if low_win and low_min > 0:
+            lines.append("Fatigue: %s of this journey falls in the low hours, %s on the clock at the start." % (
+                fmt_hm(low_min / 60.0), fatigue.label(low_win)))
         if link:
             lines.append("Live map: " + link)
         entry = ical.event("%s: %s to %s" % (word, pts[0][0], pts[-1][0]), dep, arr, location=pts[0][0],
@@ -597,8 +610,9 @@ def cmd_route(a):
         ical.deliver(a, [entry], "route-%s" % dep.date().isoformat(), estimate=any_estimate)
 
 
-def pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky):
-    """Try every departure in the window and return the one with the least night driving, then the least low sun ahead."""
+def pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky, low_win=None):
+    """Try every departure in the window and return the one with the least night driving, then the least low sun ahead.
+    With low_win (route --fatigue), time in the low hours counts before either."""
     m = re.match(r"^\s*(\d{1,2}[:.]\d{2})\s*-\s*(\d{1,2}[:.]\d{2})\s*$", unprotect(a.window))
     if not m:
         die("--window is two clock times at the start point: 06:00-12:00")
@@ -615,6 +629,8 @@ def pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky):
     moved = False
     if not a.date and now.hour * 60 + now.minute > last:
         day, moved = day + timedelta(days=1), True
+    if low_win:
+        from . import fatigue
     tried = []
     for minute in range(first, last + 1, a.step):
         dep, _ = chrono.localize(datetime(day.year, day.month, day.day, minute // 60, minute % 60), start_tz)
@@ -625,16 +641,17 @@ def pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky):
         arr = chrono.to_utc(chrono.add(dep, total_h * 3600)).astimezone(end_tz)
         sunset = sky.sun_event(arr.date(), pts[-1][1], pts[-1][2], sky.SUN_ALT["sun"], False)
         lit = (not isinstance(sunset, str)) and chrono.to_utc(arr) <= chrono.to_utc(sunset)
-        tried.append({"dep": dep, "arr": arr, "night": bins["night"], "twilight": bins["twilight"],
+        low = fatigue.low_minutes(dep, total_h, low_win) if low_win else 0.0
+        tried.append({"dep": dep, "arr": arr, "night": bins["night"], "twilight": bins["twilight"], "low": low,
                       "glare": sum((g["end"] - g["start"]).total_seconds() / 60.0 + dt_min for g in glare), "lit": lit, "sunset": sunset})
 
     def score(c):
-        return (round(c["night"] + 0.5 * c["twilight"], 3), round(c["glare"], 3), chrono.to_utc(c["dep"]))
+        return (round(c["low"], 3), round(c["night"] + 0.5 * c["twilight"], 3), round(c["glare"], 3), chrono.to_utc(c["dep"]))
 
     def show(c):
-        return "depart %s, arrive %s | night %s, twilight %s, low sun ahead %s" % (
+        return "depart %s, arrive %s | night %s, twilight %s, low sun ahead %s%s" % (
             c["dep"].strftime("%H:%M"), c["arr"].strftime("%H:%M"), fmt_hm(c["night"] / 60.0), fmt_hm(c["twilight"] / 60.0),
-            fmt_hm(c["glare"] / 60.0))
+            fmt_hm(c["glare"] / 60.0), ", low hours %s" % fmt_hm(c["low"] / 60.0) if low_win else "")
 
     rec("WINDOW", "%s, departures %s to %s every %d min: %d tried [derived]%s" % (
         day.isoformat(), m.group(1), m.group(2), a.step, len(tried), " (today's window has passed: this is tomorrow)" if moved else ""))
@@ -651,14 +668,14 @@ def pick_departure(a, pts, legs, total_h, start_tz, end_tz, sky):
     ranked = sorted(pool, key=score)
     best = ranked[0]
     rec("BEST", show(best))
-    others = [c for c in ranked[1:] if score(c)[:2] != score(best)[:2]]
+    others = [c for c in ranked[1:] if score(c)[:3] != score(best)[:3]]
     if others:
         rec("NEXT BEST", show(others[0]))
     worst = max(tried, key=score)
-    if score(worst)[:2] != score(best)[:2]:
+    if score(worst)[:3] != score(best)[:3]:
         rec("WORST", show(worst))
     else:
-        more("every departure in the window is the same for light: the earliest is taken")
+        more("every departure in the window is the same for light%s: the earliest is taken" % (" and the low hours" if low_win else ""))
     return best["dep"]
 
 
@@ -889,6 +906,12 @@ def cmd_trip(a):
     door_start = chrono.to_utc(first["dep"])
     door_end = chrono.to_utc(last["arr"])
     entries, guessed = [], False
+    tired = bool(a.fatigue or a.low_hours)
+    drives, rests = [], []          # for --fatigue: the stretches someone drives, and the waits long enough to sleep in
+    set_off, origin, body_tz = first["dep"], "the first departure", first["dep"].tzinfo
+    if tired:
+        from . import fatigue
+        low_win = fatigue.parse_window(a.low_hours or fatigue.LOW_HOURS)
     if a.home:
         hp = parse_point(a.home)
         s, km, hours, tag, _ = estimate_leg(hp, first["p1"], a.home_mode)
@@ -900,6 +923,9 @@ def cmd_trip(a):
             _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag, a.margin,
             first["p1"][0], be_there.strftime("%H:%M"), checkin))
         door_start = chrono.to_utc(leave)
+        set_off, origin, body_tz = leave, "you left %s" % hp[0], leave.tzinfo
+        if tired and a.home_mode in fatigue.DRIVEN:
+            drives.append(("the drive to %s" % first["p1"][0], leave, chrono.add(leave, hours * 3600)))
         guessed = guessed or tag == "estimate"
         entries.append(("Leave for %s" % first["p1"][0], leave, be_there, hp[0],
                         "Leave %s by %s.\n%s %s%s km, %s [%s], plus %d min margin.\nBe at %s by %s, %d min before departure." % (
@@ -939,10 +965,14 @@ def cmd_trip(a):
                 problem = "%s km/h is very slow for %s: check times and dates" % (trim(speed, 1), _MODE_WORD.get(mode, mode))
         if problem:
             rec("CHECK", "leg %d: %s" % (i, problem))
+        if tired and mode == "car" and dur_h > 0:
+            drives.append(("the drive from %s to %s" % (p1[0], p2[0]), dep, arr))
         if i < len(legs):
             nxt = legs[i]
             gap_s = (chrono.to_utc(nxt["dep"]) - chrono.to_utc(arr)).total_seconds()
             wait_s += max(0.0, gap_s)
+            if tired and gap_s >= fatigue.REST_H * 3600:
+                rests.append((nxt["dep"], p2[0]))
             moved = haversine_km(p2[1], p2[2], nxt["p1"][1], nxt["p1"][2])
             where = p2[0] if moved < 1.0 else "%s -> %s (%s km apart: needs a transfer)" % (p2[0], nxt["p1"][0], trim(moved, 0))
             need = a.min_connect
@@ -970,6 +1000,8 @@ def cmd_trip(a):
         more("%d min to get out + %s %s%s km, %s [%s]" % (
             exit_min, _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag))
         door_end = chrono.to_utc(there)
+        if tired and a.home_mode in fatigue.DRIVEN:
+            drives.append(("the onward drive to %s" % op[0], chrono.add(there, -hours * 3600), there))
         guessed = guessed or tag == "estimate"
         entries.append(("Onward to %s" % op[0], last["arr"], there, last["p2"][0],
                         "%d min to get out, then %s %s%s km, %s [%s].\nThere by %s." % (
@@ -988,6 +1020,8 @@ def cmd_trip(a):
         rec("SHIFT", "%s (%s): body clock says %s on arrival, local says %s" % (
             chrono.fmt_delta_h(shift), way, body.strftime("%H:%M"), last["arr"].strftime("%H:%M")))
         more("allow about %s days to adjust [rule of thumb: a day per zone eastbound, less westbound]" % trim(days, 0))
+    if tired:
+        fatigue.trip_report(drives, set_off, origin, rests, body_tz, low_win)
     for n in dict.fromkeys(notes):
         rec("NOTE", n)
     rec("NOTE", "timetable times are as given; check them against the carrier before relying on this")
@@ -1001,12 +1035,13 @@ def cmd_trip(a):
 
 def register(sub):
     p = command(sub, "ground", "route", cmd_route,
-                "legs, bearings, travel time, breaks, buffer, ETA, daylight, low-sun glare, a live-map link, a calendar file",
+                "legs, bearings, travel time, breaks, buffer, ETA, daylight, low-sun glare, fatigue, a live-map link, a calendar file",
                 ['route krakow ktw --depart "2026-11-12 05:30"', 'route krakow ktw --arrive "2026-11-12 04:40"',
                  "route warsaw krakow --mode car --firn", "route waw cdg jfk --mode air",
                  "route 50.2599,19.0216 -33.87,151.21 --mode air",
                  'route krakow ktw --arrive "2026-11-12 04:40" --ics auto',
-                 "route krakow gdansk --window 05:00-11:00 --date 2026-12-05 --before-dark"])
+                 "route krakow gdansk --window 05:00-11:00 --date 2026-12-05 --before-dark",
+                 'route krakow gdansk --depart "2026-12-05 21:00" --fatigue'])
     p.add_argument("points", nargs="+", help="gazetteer places (key, name, alias or airport code), home, work, or lat,lon")
     p.add_argument("--mode", default="car", choices=sorted(MODES),
                    help="car 80 km/h, motorway 105, city 30, bike 18, walk 4.8, rail 90, air 800 (averages)")
@@ -1021,15 +1056,21 @@ def register(sub):
     p.add_argument("--date", help="the day for --window (default today, or tomorrow once the window has passed)")
     p.add_argument("--step", type=int, default=15, help="minutes between the departures tried in --window (default 15)")
     p.add_argument("--before-dark", action="store_true", help="with --window: only departures that arrive before sunset")
+    p.add_argument("--fatigue", action="store_true",
+                   help="a drive: flag the stretch that falls in the low hours, a day too long at the wheel, thin breaks; "
+                        "with --window, time in the low hours is weighed first")
+    p.add_argument("--low-hours", metavar="HH:MM-HH:MM",
+                   help="the low hours for --fatigue, on the clock at the start (default 00:00-06:00)")
     p.add_argument("--tz", help="zone for points that have none (raw coordinates)")
     p.add_argument("--firn", action="store_true", help="also budget the leg against FIRN-01 lore range")
     ical.add_option(p, "the journey")
 
     p = command(sub, "ground", "trip", cmd_trip,
-                "timetabled legs in local times: connections, leave-by, door to door, time shift, a calendar file",
+                "timetabled legs in local times: connections, leave-by, door to door, time shift, fatigue, a calendar file",
                 ['trip "waw 2026-12-18 06:40 > cdg 09:05" "cdg 10:50 > jfk 13:10" --home warsaw --onward new_york',
                  'trip "krakow 08:02 > warsaw 10:28 rail" --date 2026-11-20',
-                 'trip "krakow 08:02 > warsaw 10:28 rail" --date 2026-11-20 --home krakow --ics auto'])
+                 'trip "krakow 08:02 > warsaw 10:28 rail" --date 2026-11-20 --home krakow --ics auto',
+                 'trip "waw 2026-12-18 12:40 > jfk 16:05" --home warsaw --onward philadelphia --fatigue'])
     p.add_argument("legs", nargs="+",
                    help='"FROM [DATE] HH:MM > TO [DATE|+1] HH:MM [fly|rail|drive|bus|ferry]", each in its own local time')
     p.add_argument("--date", help="date of the first departure when the leg gives none (default today)")
@@ -1042,6 +1083,10 @@ def register(sub):
     p.add_argument("--min-connect", type=int, default=60, help="connections under this many minutes are flagged (default 60)")
     p.add_argument("--ref", help="reference zone for the arrival (default home)")
     p.add_argument("--tz", help="zone for places that have none")
+    p.add_argument("--fatigue", action="store_true",
+                   help="check the legs someone drives: the low hours on the body clock, and the hours since setting off")
+    p.add_argument("--low-hours", metavar="HH:MM-HH:MM",
+                   help="the low hours for --fatigue, on the clock where the trip starts (default 00:00-06:00)")
     ical.add_option(p, "every leg")
 
     p = command(sub, "ground", "places", cmd_places, "the gazetteer: what is in it, search, nearest, or print a new entry of your own",

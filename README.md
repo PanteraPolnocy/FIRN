@@ -6,7 +6,7 @@ The split is deliberate. **The numbers come from maths, and the personality is t
 
 What he is for:
 
-- **Getting somewhere**: routes with breaks, buffer and a leave-by time; the best departure in a window for daylight; trips with flights and connections; the best order for a round of errands; several people arriving together, and the fairest place for them to meet; a live-map link to check any estimate; a calendar file to drop into any calendar; an airport's weather report decoded and read for the road; what changes when you cross a border.
+- **Getting somewhere**: routes with breaks, buffer and a leave-by time; the best departure in a window for daylight; a fatigue check that flags a drive through the low hours or at the end of a very long day; trips with flights and connections; the best order for a round of errands; several people arriving together, and the fairest place for them to meet; a live-map link to check any estimate; a calendar file to drop into any calendar; an airport's weather report decoded and read for the road; what changes when you cross a border.
 - **Keeping time**: any moment across zones, the weeks when two countries' clocks are out of step, an event that repeats in someone else's zone, shared waking hours, exact spans, and how long the conversation itself has run.
 - **Vehicles**: performance from power and mass, stopping distances by surface, collision mechanics, weight transfer, gearing, tyres, EV range and charging, fuel cost, fault codes, warning lights.
 - **Owning one**: service and inspection dates from your own records, with a word at boot when something is due; payload, towing and "will it fit" sums; two or more vehicles side by side.
@@ -21,7 +21,7 @@ What he is for:
 
 - An assistant that can load skills **and run Python**: Claude with code execution (Claude Code, or the Claude apps with code execution switched on). A capable model matters: Claude Opus class or an equivalent. FIRN has too many moving parts for a small model, and he does not work at all where scripts cannot run.
 - Python 3.9 or later. **Standard library only**: nothing to install, no network access. The gazetteer is an SQLite file, read with the `sqlite3` module that ships with Python.
-- Windows note: stock Python on Windows has no time-zone database. FIRN does not need one; he carries a table generated from the IANA database (2000 to 2045). If you want dates outside that window to be exact, `pip install tzdata` and he will use it.
+- Windows note: stock Python on Windows has no time-zone database. FIRN does not need one; he carries a table generated from the IANA database (2000 to 2045). If you want dates outside that window to be exact, `pip install tzdata` and he will use it. Where a machine's own tz database is from an older release than the table, he reads the zones that have changed since from the table, and `boot` says so.
 
 ## Install
 
@@ -82,6 +82,7 @@ $ python scripts/firn.py stop --from 50 --table
 $ python scripts/firn.py odds 2d20kh1+5 --target 15
 $ python scripts/firn.py lattice veil=full wait=45 hit=left:heavy
 $ python scripts/firn.py route krakow ktw --arrive "2026-11-12 04:40" --ics auto
+$ python scripts/firn.py route krakow gdansk --depart "2026-12-05 21:00" --fatigue
 $ python scripts/firn.py tow --trailer 1300 --limit 1500 --kerb 1650 --nose 75 --nose-limit 80
 $ python scripts/firn.py fit --space 1800x1000x700 --item europallet --item 600x400x300:4
 $ python scripts/firn.py series sat 12:00 --from slt --count 8
@@ -106,6 +107,7 @@ Every number in the output carries a tag: `[derived]` calculated exactly, `[esti
 ## What to know before you trust it
 
 - **Road distances are estimates** (straight line times a factor) unless you have recorded a checked leg. `route` prints a live-map link for exactly that reason.
+- **`--fatigue` knows the clock, not the driver.** It measures a planned drive against published benchmarks, each named on the line that uses it: the Highway Code's rule 91 (avoid long journeys between midnight and 06:00; fifteen minutes' break every two hours), the nine hours a day the EU allows a professional driver, and NIOSH's figures for hours awake. It cannot know how anyone slept.
 - **Armour and spotting** use house rules inspired by World of Tanks, as that game's client stood in November 2026 (`scripts/data/rulesets.json`). For the real game, look up the current patch and pass the values in.
 - **Weapons in simulations** (`strike`, `blast`, `board`) run on house rules written for this skill and dated November 2026 (`scripts/data/arms.json`): dice, range bands, kinds of damage against classes of armour, an area template for a blast. They are game mechanics and nothing else. A ruleset you name outranks them.
 - **The LSL skeleton lints clean but has not been compiled in-world, and `lsl tune` is worked out on paper from the documented model.** Try both in a sandbox region first.
@@ -145,7 +147,7 @@ tools/                  build scripts
 ```
 python tests/test_firn.py                 the test suite (run it with and without the tzdata package)
 python tools/build.py                     checks the source and packs dist/firn.zip
-python tools/build_zones.py               regenerates the zone table (needs tzdata)
+python tools/build_zones.py               regenerates the zone table (needs a tz database no older than the table's)
 python tools/build_index.py               rewrites the command index after a command is added or re-described
 python tools/build_places.py DATA_DIR --geonames
                                           regenerates the gazetteer (source URLs are in the file)

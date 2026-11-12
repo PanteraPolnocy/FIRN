@@ -2,6 +2,8 @@
 
 The machine's own tz database (zoneinfo) is used when it has one. Where it is missing
 (stock Python on Windows), a table generated from the IANA database (data/zones.json) stands in.
+Where the machine's database is from an older release than the table, the zones that have
+changed since are read from the table.
 All arithmetic is done in UTC, so an ETA that crosses a clock change stays exact.
 """
 import bisect
@@ -53,7 +55,7 @@ def home_label():
     return "home" if home_is_set() else "utc"
 
 
-# ---- the generated zone table (fallback only)
+# ---- the generated zone table (the fallback, and the better source for zones an older tz database has wrong)
 
 class TableTZ(tzinfo):
     """A zone read from data/zones.json. Honours fold, like zoneinfo."""
@@ -155,21 +157,63 @@ def _zoneinfo_probe():
         return False
 
 
+_RELEASE_RE = re.compile(r"^\d{4}[a-z]+$")
+
+
+def _machine_release():
+    """The release of the tz database zoneinfo reads on this machine (2026e), or '' where it does not say."""
+    try:
+        import zoneinfo
+        for folder in zoneinfo.TZPATH:
+            if os.path.isfile(os.path.join(folder, "Europe", "Warsaw")):
+                with open(os.path.join(folder, "tzdata.zi"), encoding="utf-8") as f:
+                    m = re.match(r"#\s*version\s+(\S+)", f.readline())
+                return m.group(1) if m else ""
+        import tzdata
+        return tzdata.IANA_VERSION
+    except Exception:
+        return ""
+
+
+def _stale():
+    """Zones (lower case) that changed in releases newer than this machine's tz database, from the table's own record.
+    Empty when the machine is not behind the table. None when it is further behind than the record reaches."""
+    here, mine = _machine_release(), _zones()["source"].split()[-1]
+    if not (_RELEASE_RE.match(here) and _RELEASE_RE.match(mine)) or here >= mine:
+        return frozenset()
+    steps = _zones().get("changed") or []
+    if not steps or here < steps[0][0]:
+        return None
+    return frozenset(n.lower() for _, now, names in steps if now > here for n in names)
+
+
 def _zoneinfo_ok():
     """Is there a tz database on this machine that zoneinfo can read? Asked once."""
     if os.environ.get("FIRN_TZ", "").lower() in ("table", "rules"):
         return False
     if "ok" not in _zi_state:
         _zi_state["ok"] = _zoneinfo_probe()
+        _zi_state["stale"] = _stale() if _zi_state["ok"] else frozenset()
     return _zi_state["ok"]
 
 
+def _table_first(key):
+    """No tz database here, or this zone has changed since the release of the one there is."""
+    return not _zoneinfo_ok() or _zi_state["stale"] is None or key.lower() in _zi_state["stale"]
+
+
 def tz_source():
-    if _zoneinfo_ok():
-        return "tz database"
     first, last = table_window()
-    return "built-in zone table from the %s, %d to %d (no tz database on this machine)" % (
-        _zones()["source"], first, last - 1)
+    table = "built-in zone table from the %s, %d to %d" % (_zones()["source"], first, last - 1)
+    if not _zoneinfo_ok():
+        return table + " (no tz database on this machine)"
+    stale = _zi_state["stale"]
+    if stale is None:
+        return table + " (this machine's tz database is older, %s)" % _machine_release()
+    if stale:
+        return "tz database %s, and the built-in zone table (%s) for the %d zone%s changed since" % (
+            _machine_release(), _zones()["source"], len(stale), "" if len(stale) == 1 else "s")
+    return "tz database"
 
 
 def _zi_lookup(key):
@@ -228,10 +272,12 @@ def get_tz(name):
             die("offset out of range: '%s'" % name)
         tz = timezone(timedelta(minutes=minutes if m.group(1) == "+" else -minutes))
     else:
-        if _zoneinfo_ok():
+        if not _table_first(key):
             tz = _zi_lookup(key)
         if tz is None:
             tz = table_tz(key)
+        if tz is None and _zoneinfo_ok():
+            tz = _zi_lookup(key)
     if tz is None:
         import difflib
         pool = sorted(set(list(aliases()) + list(_zones()["zones"])))

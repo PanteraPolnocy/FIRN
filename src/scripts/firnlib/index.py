@@ -23,7 +23,7 @@ ALSO = {
     "meet": "meeting call schedule overlap awake",
     "span": "countdown age elapsed between days until how long",
     "series": "recurring weekly repeat event stream",
-    "route": "drive distance eta journey directions leave arrive departure how far",
+    "route": "drive distance eta journey directions leave arrive departure how far tired sleepy fatigue overnight night drive",
     "trip": "flight train connection layover itinerary jet lag timetable",
     "places": "town city airport coordinates find where",
     "tour": "errands stops order visit shortest round",

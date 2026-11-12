@@ -13,6 +13,7 @@ Every table the tools read is in this folder. Nothing is fetched while the tools
 | `materials.json` | typical densities | handbook values; the fuel ranges are those of EN 228 and EN 590 | written for this skill |
 | `references.json` | things of a standard size | the standard or the issuer named beside each entry | written for this skill |
 | in the tools | limits for sound, loads and lifting | NIOSH (85 dB(A), 8 h); Directive 2003/10/EC; ITU-T H.870; EN 12195-1 as the European Commission's cargo securing guidelines quote it; ISO 11228-1 | named where each is printed |
+| in the tools | figures for driver fatigue | the Highway Code (Great Britain), rule 91: the low hours, breaks; Regulation (EC) No 561/2006, article 6: a professional driver's nine hours a day; NIOSH: 17 and 24 hours awake | named where each is printed |
 | everything else | house rules, checklists, lore, the command index | written for this skill | MIT, with the code |
 
 ## GeoNames
