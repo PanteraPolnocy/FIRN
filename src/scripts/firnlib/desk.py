@@ -298,7 +298,7 @@ def cmd_record(a):
         return
     if a.firn:
         ch, tg, lat = lore["chassis"], lore["chassis_tags"], lore["lattice"]
-        weapons_tag = next((row[1] for row in lore["fit"]["not_fitted"] if row[0] == "weapons"), "")
+        weapons_tag = next((row[1] for row in lore["fit"]["fitted"] if row[0].startswith("the Keen")), "")
         cradle = "up to %d armour cores with %d passengers" % (lat["cradle_cores"], lat["cradle_passengers"])
         if lat.get("cradle_charge_km"):
             cradle += "; %s km of range per armour charged" % trim(lat["cradle_charge_km"], 1)
@@ -318,7 +318,7 @@ def cmd_record(a):
             ("CELL", "%d seats, %d min of independent air" % (ch["seats"], lat["cell_air_min"]), "lore"),
             ("CRADLE", cradle, "lore"),
             ("CORE", ch["core"], tg["core"]),
-            ("WEAPONS", "none fitted by default", weapons_tag),
+            ("WEAPONS", "one fitted, the Keen; anything else is a mission module on the brief", weapons_tag),
             ("SOURCE", "reference sheet; package %s" % a.package if a.package else "reference sheet; lore.json", ""),
         ]
         _print_record(rows)

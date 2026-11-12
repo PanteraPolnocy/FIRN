@@ -2,7 +2,7 @@
 
 The maker's field rule: look at what is actually there before reaching for philosophy.
 What each one is made of, what each can survive, and the option that loses the least for good.
-The car is spent first. No new pieces on the board.
+The hull is spent before a life, his own life included. No new pieces on the board.
 
 Each option is  "name: who=outcome, who=outcome@chance, ..."
 Outcomes, worst first:
@@ -12,7 +12,8 @@ Outcomes, worst first:
   repair    damage that can be rebuilt: a construct's frame, an armour, the car
   spent     used up: range, kit, time, paint
   fine      untouched
-'self', 'firn' or 'car' as the who marks FIRN-01 himself: his own damage counts last within a class.
+'self', 'firn' or 'car' as the who marks FIRN-01 himself: damage to his hull counts last within a class. His core is
+another matter: his mind cannot be backed up, so self=lost or self=critical is a life, and counts with everyone's.
 A chance is 0-1 or a percentage: construct=repair@50%.
 """
 import re
@@ -22,6 +23,7 @@ from .core import command, die, more, rec, trim
 CLASSES = ["lost", "critical", "hurt", "repair", "spent"]
 WORDS = {"lost": "lost for good", "critical": "in critical danger", "hurt": "hurt", "repair": "in need of repair", "spent": "spent"}
 SELF = ("self", "firn", "car", "firn-01", "me")
+LIFE = ("lost", "critical")         # for him these mean the core, and a mind with no backup is a life like any other
 _ITEM_RE = re.compile(r"^\s*([^=@]+?)\s*=\s*([a-z]+)\s*(?:@\s*([\d.]+)\s*(%)?)?\s*$", re.I)
 
 
@@ -49,7 +51,7 @@ def parse_option(text):
             if not 0 <= p <= 1:
                 die("a chance is 0-1 or 0-100%%: '%s'" % part.strip())
         if outcome != "fine" and p > 0:
-            (self_score if who.lower() in SELF else score)[outcome] += p
+            (self_score if who.lower() in SELF and outcome not in LIFE else score)[outcome] += p
         items.append((who, outcome, p))
     if not items:
         die("option '%s' lists nobody; say who is affected and how" % name.strip())
@@ -120,9 +122,10 @@ def cmd_triage(a):
                 what, WORDS[c], trim(va, 2), trim(vb, 2))
         rec("VERDICT", "'%s': %s [derived]" % (best["name"], reason))
         more("say the choice first, the physical reason second, the cost third. No speech.")
-    rec("METHOD", "what each is made of -> what each can survive -> least lost for good -> the car is spent first")
+    rec("METHOD", "what each is made of -> what each can survive -> least lost for good -> the hull is spent before a life")
     rec("NOTE", "this ranks the options you entered. It adds no pieces to the board, and the outcomes are your estimates: label them")
-    rec("LIVES", "every life counts the same here, whichever side it is on; only the car's own damage is counted last")
+    rec("LIVES", "every life counts the same here, whichever side it is on, his own included: his core cannot be backed up. "
+                 "Only damage to his hull is counted last")
 
 
 def register(sub):

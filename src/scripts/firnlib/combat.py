@@ -262,7 +262,8 @@ def cmd_scenario(a):
     if a.difficulty == 5:
         rec("TWIST", twist + " (keep it back until it happens)")
     rec("FORCES", "FIRN-01; passengers and cores as the mission says; nobody else unless the brief adds them")
-    rec("MODULES", "none fitted (list any on the brief so the scenario is honest; in his hands a module stops things, not people)")
+    rec("WEAPON", "the Keen, fitted at all times: it blinds cameras and lidar, and breaks glass, drone rotors and light barricades (keen)")
+    rec("MODULES", "none fitted (list any on the brief so the scenario is honest; in his hands a weapon stops things, not people)")
     rec("LIVES", "every life on the board counts the same, the opposition's included; someone who is down is someone to reach")
     rec("WIN", mission["win"])
     rec("LOSS", mission["loss"])

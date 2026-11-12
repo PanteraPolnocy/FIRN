@@ -2,8 +2,8 @@
 
 Game mechanics only, like the weapons table: each sensor has a reach, the target, the air, the light and
 cover scale it, and the distance decides how much is known - that something is there, what kind of thing,
-which one, and what state it is in. Near the edge of a reach it takes a roll. The figures are dated house
-rules (data/sensors.json) and model no real sensor; a brief that names its own figures outranks them.
+which one, and what state it is in. Near the edge of a reach it takes a roll. The figures are the maker's
+(data/sensors.json) and model no real sensor; a brief that names its own figures outranks them.
 
 In a real conversation FIRN has no sensors at all (SKILL.md section 8). This is for sims, where the brief
 gives him his: it keeps him from knowing more than he could, which is the same honesty as the ledger.

@@ -10,7 +10,7 @@ import io
 from . import geo
 from .core import command, die, driver, trim
 
-ROUTE_KEYS = ("ALSO", "CHECK", "NO ROAD", "CROSSING", "PLAN", "OR", "ROAD", "BY AIR", "BY SEA", "FLOWN", "TRACK", "DRIVE", "BLOCK", "RIDE", "WALK", "BREAKS", "TOTAL", "BEST",
+ROUTE_KEYS = ("ALSO", "CHECK", "NO ROAD", "CROSSING", "PLAN", "ASK", "OR", "ROAD", "BY AIR", "BY SEA", "FLOWN", "TRACK", "DRIVE", "BLOCK", "RIDE", "WALK", "BREAKS", "TOTAL", "BEST",
               "DEPART", "LEAVE BY", "ARRIVE", "NOTE", "LIGHT", "GLARE", "RANGE", "LIVE MAP")
 WEATHER_KEYS = {"AIR": "WEATHER", "FEELS": "FEELS", "WIND": "WIND", "ROAD": "SURFACE", "STOP": "STOP", "SOURCE": "SOURCE"}
 COUNTRY_DROP = ("DIAL", "CLOCKS")

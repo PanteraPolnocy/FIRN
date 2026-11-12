@@ -24,6 +24,10 @@ def _clock(seconds):
     return "%s s" % trim(seconds, 1)
 
 
+def _times(factor):
+    return "twice" if factor == 2 else "%s times" % trim(factor, 1)
+
+
 def _range(lore, km, left=None):
     full = float(lore["chassis"]["range_km"])
     have = full if left is None else left
@@ -50,19 +54,28 @@ def cmd_summon(a):
         die("--urgent needs --speed, the average he may hold: how far above the limits is the driver's word, not his")
     if a.speed is not None and not 0 < a.speed <= top:
         die("--speed is above zero and no more than his governor, %s km/h" % trim(top, 0))
-    plan = geo.crossing.plan(spot, to, a.mode)
+    plan = geo.crossing.plan(spot, to, a.mode, "sea", a.speed)
     straight, km, hours, tag, _ = geo.ground_leg(spot, to, a.mode)
-    if plan:
-        rec("NO ROAD", "%s. He does not fly, and whether he boards a ferry with nobody aboard has no ruling: he cannot come to you. "
-                       "Go to him: park --find" % plan["why"])
+    carried = 0.0
+    if plan and plan["how"] != "ferry":
+        rec("NO ROAD", "%s. He does not fly: he cannot come to you. Go to him: park --find" % plan["why"].split(", and no car ferry")[0])
         return
+    if plan and not a.urgent:
+        rec("WAITS", "%s. He boards a ferry or a shuttle alone only when it is urgent [lore]: he stays where he is. "
+                     "Go to him (park --find), or call it urgent: --urgent --speed N" % plan["why"])
+        return
+    if plan:
+        rec("CROSSING", "%s. Urgent, so he boards alone, and says so [lore]: %s" % (plan["why"], plan["summary"].split(", ")[0] + ", "
+                        + plan["summary"].split(", ", 1)[1].rsplit(", ", 1)[0]))
+        km, tag = plan["ground_km"], "estimate"
+        carried = plan["hours"] - plan["wheel_h"]
     rec("SUMMON", "%s -> %s: %s km straight, %s%s km by road%s" % (
         spot[0], to[0], trim(straight, 1), "~" if tag == "estimate" else "", num(km, 1) if km < 100 else num(km),
         " [estimate: straight line x %s]" % trim(geo.MODES[a.mode][1], 2) if tag == "estimate" else " [%s]" % tag))
     if a.urgent:
-        hours = km / a.speed
-        rec("ETA", "%s at %s km/h average: URGENT, above the posted limits on the driver's word, and he says so [lore]" % (
-            _clock(hours * 3600), trim(a.speed, 0)))
+        hours = km / a.speed + carried
+        rec("ETA", "%s at %s km/h average%s: URGENT, above the posted limits on the driver's word, and he says so [lore]" % (
+            _clock(hours * 3600), trim(a.speed, 0), ", with %s for the crossing" % fmt_hm(carried) if carried else ""))
     else:
         rec("ETA", "%s at %s km/h average [%s mode]: within the posted limits [lore]" % (
             _clock(hours * 3600), trim(geo.MODES[a.mode][0], 0), a.mode))
@@ -174,8 +187,19 @@ def cmd_grapple(a):
             trim(kwh / per_km, 2), trim(a.pull_m, 1)))
     else:
         more("add --pull-m, how far the load is dragged, for what it costs in range")
-    rec("RULES", "it cannot hold a powered armour [lore]. Whether he keeps his own footing while he pulls is the brief's to say: "
-                 "his grip has no figure")
+    pull = min(need, limit)
+    held = limit if a.ground == "hard" else float(cfg["soft_kg"])
+    if a.self:
+        rec("FOOTING", "not his worry here: he is the one that moves, towards whatever the line is made fast to")
+    elif a.anchors:
+        rec("FOOTING", "anchored: the sill anchors bite and he holds the full %s kg, pinned until they lift. They tear up the "
+                       "ground, so only if necessary, and he says so [lore]" % num(limit))
+    elif pull <= held + 1e-9:
+        rec("FOOTING", "he holds his ground: %s kg of the %s kg he holds on %s ground [lore]" % (num(pull), num(held), a.ground))
+    else:
+        rec("FOOTING", "HE SLIDES: %s kg, and on soft ground he holds %s kg [lore]. Harder ground, a lighter pull, or the sill "
+                       "anchors (--anchors), which tear the ground up: only if necessary" % (num(pull), num(held)))
+    rec("RULES", "it cannot hold a powered armour [lore]")
 
 
 # ---- escort
@@ -248,16 +272,24 @@ def cmd_ford(a):
             trim(a.depth - high, 2), trim(high * 1000, 0)))
         rec("SENSES", "cameras and lidar low on the body are out while he is in it [lore]: radar, the thermal imager up high and the "
                       "microphones carry the watch")
-        rec("AFTER", "the Rime takes longer to re-cool afterwards [lore]: how much longer has no figure, so the driver rules")
+        rec("AFTER", "for %d min after he is out, a struck Rime patch takes %s as long to re-cool [lore]" % (
+            lore["ford"]["rime_window_s"] / 60, _times(lore["ford"]["rime_factor"])))
     if a.width is not None:
         if a.width <= 0:
             die("--width is above zero")
-        if a.kmh is not None:
-            if a.kmh <= 0:
-                die("--kmh is above zero")
-            rec("ACROSS", "%s m in %s at %s km/h [as given]" % (trim(a.width, 0), _clock(a.width / (a.kmh / 3.6)), trim(a.kmh, 1)))
+        kmh = a.kmh if a.kmh is not None else float(lore["ford"]["crawl_kmh"])
+        if kmh <= 0:
+            die("--kmh is above zero")
+        if a.depth <= high + 1e-9 and a.kmh is None:
+            rec("ACROSS", "%s m: shallow water does not slow him to a crawl; give --kmh for a time" % trim(a.width, 0))
         else:
-            rec("ACROSS", "%s m: give --kmh for the time. His crawling pace in water has no figure" % trim(a.width, 0))
+            secs = a.width / (kmh / 3.6)
+            rec("ACROSS", "%s m in %s at %s km/h [%s]" % (trim(a.width, 0), _clock(secs), trim(kmh, 1),
+                                                          "as given" if a.kmh is not None else "lore: his crawl in deep water"))
+            if a.depth > high + 1e-9:
+                rec("LEDGER", "book it in a sim with: lattice --state ... wait=%s wade" % trim(secs, 0))
+    elif a.depth > high + 1e-9:
+        rec("LEDGER", "book it in a sim with: lattice --state ... wade, once he is out")
     rec("RULE", "he reads the depth before he commits, and says it. Moving water is not still water: a current is the brief's to give")
 
 
@@ -288,7 +320,7 @@ def register(sub):
     p = command(sub, "firn", "grapple", cmd_grapple,
                 "FIRN-01's grapple: the pull a load needs on a slope against the 3 t he pulls, the reach of the line, the range it costs",
                 ["grapple --mass 1800 --slope 20 --resist 0.3 --distance 22 --pull-m 15", "grapple --self --load 260 --slope 35 --resist 0.2",
-                 "grapple --mass 2500 --slope 90"])
+                 "grapple --mass 2500 --slope 90 --ground soft", "grapple --mass 2500 --slope 90 --ground soft --anchors"])
     p.add_argument("--mass", type=float, help="what is to be moved, kg")
     p.add_argument("--self", action="store_true", help="he pulls himself: his kerb mass, plus --load")
     p.add_argument("--load", type=float, default=0.0, help="with --self: people and cargo aboard, kg")
@@ -297,6 +329,9 @@ def register(sub):
                                                                "(default 0: rolling free)")
     p.add_argument("--distance", type=float, help="how far away it is, m: checked against the line")
     p.add_argument("--pull-m", type=float, help="how far it is dragged, m: gives the cost in range")
+    p.add_argument("--ground", default="hard", choices=("hard", "soft"),
+                   help="what he stands on: hard (tarmac, rock, frozen earth) or soft (mud, snow, ice, wet grass)")
+    p.add_argument("--anchors", action="store_true", help="drop the sill anchors: he holds the full pull, and the ground is torn up")
 
     p = command(sub, "firn", "escort", cmd_escort,
                 "FIRN-01 walks someone to cover behind his hull: how long, what a Veil over them costs, whether the emitters last",
@@ -312,7 +347,7 @@ def register(sub):
 
     p = command(sub, "firn", "ford", cmd_ford,
                 "deep water for FIRN-01: whether he wades it (to 1.5 m), what goes blind while he does, and what it leaves behind",
-                ["ford --depth 0.8", "ford --depth 1.4 --width 60 --kmh 4", "ford --depth 2.2"])
+                ["ford --depth 0.8", "ford --depth 1.4 --width 60", "ford --depth 2.2"])
     p.add_argument("--depth", type=float, required=True, help="the depth of the water, m")
     p.add_argument("--width", type=float, help="how far across, m")
-    p.add_argument("--kmh", type=float, help="the pace he crawls at, km/h: the brief's figure")
+    p.add_argument("--kmh", type=float, help="the pace he crosses at, km/h (default: his crawl in deep water, 4)")

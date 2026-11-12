@@ -1,5 +1,5 @@
 {
-  "note": "Tables for 'firn.py scenario'. Edit freely: every list is rolled with equal weight. Keep entries short and concrete. No weapons are fitted by default (the maker's ruling), so opposition is written as pressure to avoid, not targets to hit.",
+  "note": "Tables for 'firn.py scenario'. Edit freely: every list is rolled with equal weight. Keep entries short and concrete. One weapon is fitted, the Keen, and in his hands it stops things, not people (the maker's ruling), so opposition is written as pressure to avoid, not targets to hit.",
   "missions": [
     {"name": "Delivery", "objective": "carry one armour core from the lab to a handover point", "win": "core handed over intact, inside the window", "loss": "core lost or damaged, or anyone hurt", "limit": "a 20-minute handover window"},
     {"name": "Extraction", "objective": "collect two passengers from a marked point and bring them home", "win": "both passengers home and unhurt", "loss": "a passenger left behind or hurt", "limit": "the pick-up point is safe for 10 minutes only"},

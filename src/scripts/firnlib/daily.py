@@ -39,10 +39,10 @@ def cmd_stops(a):
     legs, total = [], 0.0
     estimated = False
     for i, (p1, p2) in enumerate(zip(pts, pts[1:]), 1):
-        plan = geo.crossing.plan(p1, p2, a.mode)
+        plan = geo.crossing.plan(p1, p2, a.mode, "sea")      # the car is the point: a crossing on file, or nothing
         if plan and plan["how"] != "ferry":
-            die("leg %d has no road (%s): plan the stops for each drive on its own" % (i, plan["summary"]))
-        _, km, _, tag, _ = geo.estimate_leg(p1, p2, a.mode)
+            die("leg %d has no road and no car crossing on file: plan the stops for each drive on its own" % i)
+        _, km, _, tag, _ = geo.estimate_leg(p1, p2, a.mode, via="sea")
         estimated = estimated or tag == "estimate"
         legs.append((p1, p2, km))
         total += km
@@ -268,10 +268,10 @@ def _trip(line):
             pts = [geo.parse_point(e) for e in ends]
         km = 0.0
         for p1, p2 in zip(pts, pts[1:]):
-            plan = geo.crossing.plan(p1, p2, "car")
+            plan = geo.crossing.plan(p1, p2, "car", "sea")
             if plan and plan["how"] != "ferry":
                 die("no road from %s to %s: give the km for that trip yourself" % (p1[0], p2[0]))
-            km += geo.estimate_leg(p1, p2, "car")[1]
+            km += geo.estimate_leg(p1, p2, "car", via="sea")[1]
         km *= 2 if back else 1
         ends = [p[0] for p in pts]
     return day, (" <> " if back else " > ").join(ends), km, estimated, purpose

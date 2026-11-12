@@ -539,7 +539,7 @@ class GroundTests(unittest.TestCase):
         d1 = geo.haversine_km(a[1], a[2], 51.0817, 1.1673) * 1.25
         d2 = geo.haversine_km(50.9504, 1.8333, b[1], b[2]) * 1.25
         wheel = (d1 + d2) / 80.0
-        out = ok("route", "london", "paris")
+        out = ok("route", "london", "paris", "--via", "sea")
         self.assertIn(" | by shuttle, Folkestone to Calais | ", field(out, "LEG 1"))
         self.assertIn("CROSSING   leg 1: Great Britain has no road to the mainland. A car crosses on the shuttle train through "
                       "the Channel Tunnel, between Folkestone and Calais, or on a ferry.\n", out)
@@ -549,8 +549,16 @@ class GroundTests(unittest.TestCase):
                      "%s door to door [estimate]: the quickest ferry is 90 min on board, and a queue at the terminal or the port "
                      "is not counted [LeShuttle]" % core.fmt_hm(wheel + 95 / 60.0)):
             self.assertIn("\n           " + line + "\n", out)
-        self.assertTrue(field(out, "OR").startswith("by air, without the car: "))
-        self.assertTrue(field(out, "OR").endswith(". Add --via air for that plan"))
+        self.assertNotIn("\nOR ", out)
+        self.assertNotIn("\nASK ", out)
+        # left to himself the tool leads with the quicker way and asks whether the car comes along [maker]
+        auto = ok("route", "london", "paris")
+        self.assertIn(" | no road: by air, LHR to ORY | ", field(auto, "LEG 1"))
+        self.assertTrue(field(auto, "ASK").startswith("does the car come along? With it: by shuttle, Folkestone to Calais, %s door to "
+                                                      "door (--via sea). Without it: by air, LHR to ORY, " % core.fmt_hm(wheel + 95 / 60.0)))
+        self.assertTrue(field(auto, "ASK").endswith(" (--via air). The quicker leads here"))
+        self.assertTrue(field(ok("route", "london", "paris", "--via", "air"), "OR").startswith(
+            "with the car, by shuttle, Folkestone to Calais: "))
         self.assertEqual(field(out, "ROAD"), "~%s km [estimate: straight line x 1.25]" % core.num(d1 + d2))
         self.assertEqual(field(out, "DRIVE"), "%s at 80 km/h average, and 1h35m for the crossing [car mode]" % core.fmt_hm(wheel))
         self.assertEqual(int(wheel // 2), 2)
@@ -559,7 +567,7 @@ class GroundTests(unittest.TestCase):
         self.assertEqual(field(out, "TOTAL"), "%s [estimate]" % core.fmt_hm(total))
         self.assertIn("LIVE MAP", out)
         self.assertNotIn("BY AIR", out)
-        # he rides the shuttle with the car, so the range is the road on both sides
+        # he is the car: with --firn the crossing on file is taken, so the range is the road on both sides
         self.assertEqual(field(ok("route", "london", "paris", "--firn"), "RANGE"),
                          "%s km of 1,500 km [lore] -> %s km left" % (core.num(d1 + d2), core.num(1500 - d1 - d2)))
         # a train goes through the tunnel; a bicycle does not
@@ -571,12 +579,12 @@ class GroundTests(unittest.TestCase):
         key, text, hours = geo.land_note(a, b, "car", checked=True)
         self.assertEqual((key, hours), ("CROSSING", 0.0))
         self.assertTrue(text.endswith("or on a ferry. The checked figure for this leg is taken to hold the crossing"))
-        self.assertAlmostEqual(geo.estimate_leg(a, b, "car")[2], wheel + 95 / 60.0, places=9)
+        self.assertAlmostEqual(geo.estimate_leg(a, b, "car", via="sea")[2], wheel + 95 / 60.0, places=9)
         self.assertAlmostEqual(geo.estimate_leg(a, b, "rail")[2], geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.30 / 90.0, places=9)
         self.assertAlmostEqual(geo.ground_leg(a, b, "car")[2], geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.25 / 80.0, places=9)
 
     def test_a_car_ferry_on_file_carries_the_car(self):
-        out = ok("route", "dublin", "london")
+        out = ok("route", "dublin", "london", "--via", "sea")
         self.assertIn("CROSSING   leg 1: Dublin is on the island of Ireland and London is on Great Britain. No road joins them: a car "
                       "is carried, on the Irish Sea ferry.\n", out)
         self.assertEqual(field(out, "PLAN"), "terminal 0h30m before departure [Direct Ferries]")
@@ -590,34 +598,59 @@ class GroundTests(unittest.TestCase):
                            (("rome", "palermo"), "ferry    Villa San Giovanni -> Messina: 0h20m on board [Traghettilines]"),
                            (("wellington", "christchurch"), "ferry    Wellington -> Picton: 3h30m on board [Interislander]"),
                            (("sapporo", "tokyo"), "ferry    Hakodate -> Aomori: 3h40m on board [AFerry]"),
-                           (("victoria_ca", "vancouver"), "ferry    Swartz Bay -> Tsawwassen: 1h35m on board [britishcolumbia.com]")):
-            out = ok("route", *pair)
+                           (("victoria_ca", "vancouver"), "ferry    Swartz Bay -> Tsawwassen: 1h35m on board [britishcolumbia.com]"),
+                           (("rome", "cagliari"), "ferry    Civitavecchia -> Olbia: 7h24m on board [AFerry]"),
+                           (("marseille", "ajaccio"), "ferry    Livorno -> Bastia: 4h28m on board [AFerry]"),
+                           (("madrid", "palma"), "ferry    Barcelona -> Palma: 7h15m on board [Direct Ferries]"),
+                           (("athens", "chania"), "ferry    Piraeus -> Heraklion: 9h30m on board [Direct Ferries]"),
+                           (("melbourne", "hobart"), "ferry    Geelong -> Devonport: 10h30m on board [Spirit of Tasmania]"),
+                           (("sydney_ca", "st_john_s"), "ferry    North Sydney -> Channel-Port aux Basques: 7h00m on board [Marine Atlantic]")):
+            out = ok("route", *pair, "--via", "sea")
             self.assertIn("\n           " + line + "\n", out, pair)
             self.assertIn("CROSSING   leg 1: ", out, pair)
             self.assertNotIn("NO ROAD", out, pair)
 
+    def test_the_quicker_way_leads_and_he_asks(self):
+        """Her ruling: he asks whether the car comes along; if it does not matter, the quicker way door to door leads."""
+        out = ok("route", "dublin", "london")
+        self.assertIn(" | no road: by air, DUB to LHR | ", field(out, "LEG 1"))
+        self.assertIn("With it: by ferry, Dublin to Holyhead, ", field(out, "ASK"))
+        out = ok("route", "messina", "reggio di calabria")
+        self.assertIn(" | by ferry, Messina to Villa San Giovanni | ", field(out, "LEG 1"))
+        self.assertTrue(field(out, "ASK").startswith("does the car come along? With it: by ferry, Messina to Villa San Giovanni, 1h01m "
+                                                     "door to door (--via sea). Without it: by air, "))
+        # where only one way exists there is nothing to ask
+        self.assertNotIn("\nASK ", ok("route", "warsaw", "washington"))
+        # the tools that move the car itself take the crossing: stops, mileage and a drive in FIRN
+        self.assertIn(" | by ferry, Dublin to Holyhead | ", field(ok("route", "dublin", "london", "--firn"), "LEG 1"))
+        self.assertEqual(run("stops", "dublin", "london", "--range", "500")[0], 0)
+
     def test_the_sea_is_named_wherever_a_leg_is_estimated(self):
         out = ok("convoy", "anna:dublin", "ben:paris", "cy:leeds", "--to", "london", "--arrive", "2026-11-14 18:00")
-        self.assertIn("CROSSING   Anna: Dublin is on the island of Ireland and London is on Great Britain. No road joins them: a car is "
-                      "carried, on the Irish Sea ferry. By ferry, Dublin to Holyhead: 3h15m on board after 0h30m at the terminal, ", out)
-        self.assertIn(" door to door, in the total. A queue at the terminal or the port is not counted [Direct Ferries].", out)
-        self.assertIn("CROSSING   Ben: Great Britain has no road to the mainland.", out)
-        self.assertIn("By shuttle, Calais to Folkestone: 0h35m on board after 1h00m at the terminal, ", out)
-        self.assertIn("on the move + 2 breaks", field(out, "BEN"))
+        self.assertIn("NO ROAD    Anna: Dublin is on the island of Ireland and London is on Great Britain. No road joins them, so this "
+                      "leg is planned by air and the car stays behind. By air, DUB to LHR: ", out)
+        self.assertIn(" door to door, in the total. As if flown direct at 800 km/h: ", out)
+        # the other way is named in the same line, since these tools take no --via
+        self.assertIn("Does the car come along? With it: by ferry, Dublin to Holyhead, ", out)
+        self.assertIn(" The quicker leads here: 'route' plans either, with the --via named.", out)
+        self.assertIn("NO ROAD    Ben: Paris is on the mainland of Europe, Asia and Africa and London is on Great Britain.", out)
+        self.assertIn("With it: by shuttle, Calais to Folkestone, ", out)
+        self.assertIn(" on the move, ", field(out, "BEN"))
         self.assertEqual(out.count("NO ROAD") + out.count("CROSSING"), 2)
         out = ok("tour", "london", "paris", "brussels", "dublin")
-        self.assertIn("CROSSING   leg 1: Great Britain has no road", out)
+        self.assertIn("NO ROAD    leg 1: London is on Great Britain and Brussels is on the mainland", out)
         self.assertIn("NO ROAD    leg 3: Paris is on the mainland of Europe, Asia and Africa and Dublin is on the island of Ireland. "
                       "No road joins them, so this leg is planned by air and the car stays behind. By air, ", out)
         out = ok("trip", "lhr 2026-12-18 10:40 > cdg 12:55", "--home", "paris", "--onward", "london")
-        self.assertIn("CROSSING   the way to London Heathrow Airport (LHR): Great Britain has no road", out)
-        self.assertIn("CROSSING   onward to London: Great Britain has no road", out)
+        self.assertIn("NO ROAD    the way to London Heathrow Airport (LHR): Paris is on the mainland", out)
+        self.assertIn("NO ROAD    onward to London: Charles de Gaulle International Airport (CDG) is on the mainland", out)
         out = ok("brief", "warsaw", "washington")
         self.assertIn("NO ROAD    leg 1: Warsaw is on the mainland", out)
         self.assertIn("PLAN       drive    Warsaw -> Warsaw Chopin Airport (WAW): ", out)
         self.assertIn("\n           fly      WAW -> DCA: ", out)
         self.assertIn("BY AIR     ~", out)
-        self.assertIn("OR         by air, without the car: ", ok("brief", "london", "paris"))
+        self.assertIn("ASK        does the car come along? With it: by shuttle, Folkestone to Calais, ", ok("brief", "london", "paris"))
+        self.assertIn("CROSSING   leg 1: Great Britain has no road", ok("brief", "london", "paris", "--via", "sea"))
 
     def test_land_mass_table(self):
         table = core.load_data("landmasses")
@@ -639,7 +672,7 @@ class GroundTests(unittest.TestCase):
             self.assertEqual(pair.split("|"), sorted(pair.split("|")))
             self.assertTrue(set(pair.split("|")) <= lands, pair)
             self.assertTrue(tagged(text) and set(tagged(text)) <= set(table["sources"]), pair)
-        self.assertEqual(len(table["crossings"]), 7)
+        self.assertEqual(len(table["crossings"]), 13)
         for c in table["crossings"]:
             self.assertIn(c["kind"], ("ferry", "shuttle"))
             self.assertIn(c["source"], table["sources"], c["name"])
@@ -1118,7 +1151,7 @@ class LatticeTests(unittest.TestCase):
     def test_charging_a_docked_armour(self):
         out = ok("lattice", "armour=1")
         self.assertIn("one docked armour charged from empty: -100 km: range 1,500.0 -> 1,400.0 km", out)
-        self.assertIn("how long charging takes has no figure", out)
+        self.assertIn("that takes 30:00.0 [lore: 30 min from empty]: add wait= for it", out)
         self.assertIn("range 1,350.0 km", ok("lattice", "armour=1.5"))
         out = ok("lattice", "--km", "40", "armour=1")
         self.assertIn("-40 km: range 40.0 -> 0.0 km", out)
@@ -1190,7 +1223,7 @@ class LatticeKindsTests(unittest.TestCase):
         self.assertIn("smoke: a quarter gets through | scales: cannot stack in time against light | rime: drank the heat", out)
         self.assertIn("| smoke out", field(out, "LEDGER"))
         state = field(out, "STATE")
-        self.assertTrue(state.endswith("/smoke=1"))
+        self.assertTrue(state.endswith("/smoke=1/su=60/sl=2"))
         led = lattice.Ledger(core.load_data("lore"))
         led.load(state)
         self.assertTrue(led.smoke)
@@ -1210,10 +1243,12 @@ class LatticeKindsTests(unittest.TestCase):
 
     def test_life_first_shows_in_the_tools(self):
         self.assertIn("LIVES      every life on the board counts the same, the opposition's included", ok("scenario", "--seed", "1"))
-        self.assertIn("in his hands a module stops things, not people", ok("scenario", "--seed", "1"))
+        self.assertIn("in his hands a weapon stops things, not people", ok("scenario", "--seed", "1"))
+        self.assertIn("WEAPON     the Keen, fitted at all times", ok("scenario", "--seed", "1"))
         self.assertIn("LIVES      every life counts the same here, whichever side it is on", ok("triage", "a: x=lost", "b: y=repair"))
         fit = ok("record", "--fit")
-        self.assertIn("NOT FITTED weapons [maker] - none by default; mission modules only when listed on the brief, and in his hands", fit)
+        self.assertIn("NOT FITTED other weapons [maker] - one weapon is fitted, the Keen; anything else is a mission module, only when "
+                      "listed on the brief. In his hands a weapon stops things", fit)
         lore = core.load_data("lore")
         self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 18)
 
@@ -1632,7 +1667,7 @@ class DeskTests(unittest.TestCase):
                      "setup", "rebuild", "tools", "stops", "precondition", "hotcar", "overtake", "mileage",
                      "summon", "intercept", "grapple", "escort", "ford"):
             self.assertRegex(out, r"(?m)^  %s\s" % name)
-        self.assertIn("90 commands.", out)
+        self.assertIn("92 commands.", out)
         self.assertIn("OBJECTS: WEIGHT, SIZE AND ANALYSIS", out)
         self.assertIn("SOUND", out)
 
@@ -2374,7 +2409,8 @@ class JumpTests(unittest.TestCase):
         self.assertNotIn("LEDGER", out)
         out = ok("jump", "--gap", "30", "--speed", "90", "--ramp", "10", "--drop", "4")
         self.assertIn("landing 4 m lower", out)
-        self.assertIn("m to spare", out)
+        self.assertIn("m past his mark", out)
+        self.assertNotIn("to spare", out)          # past the mark is not a margin of safety
         self.assertIn("no burst", out)
         out = ok("jump", "--gap", "30", "--speed", "60", "--ramp", "10")
         self.assertIn("the ramp gives 2.9, the Squall gives", out)
@@ -2429,14 +2465,15 @@ class JumpTests(unittest.TestCase):
 
     def test_canon_and_fit_list(self):
         lore = core.load_data("lore")
-        self.assertEqual(sorted(lore["squall"]), ["burst_s", "km_per_tonne_ms", "landing_stroke_m", "margin_m", "note"])
+        self.assertEqual(sorted(lore["squall"]), ["again_s", "burst_s", "bursts", "km_per_tonne_ms", "landing_stroke_m", "margin_m", "note"])
+        self.assertEqual((lore["squall"]["bursts"], lore["squall"]["again_s"]), (2, 30))
         self.assertNotIn("house rule", json.dumps(lore["squall"]) + " ".join(lore["assumptions"]))
         self.assertEqual((lore["squall"]["km_per_tonne_ms"], lore["squall"]["burst_s"], lore["squall"]["landing_stroke_m"]),
                          (0.18, 0.25, 0.5))
         self.assertEqual(lore["squall"]["margin_m"], lore["chassis"]["length_m"])
         fit = ok("record", "--fit")
         self.assertIn("FITTED     the Squall: ducts under the floor that throw a short burst of air downward [maker]", fit)
-        self.assertIn("UNKNOWN    how soon the Squall can fire again - no figure", fit)
+        self.assertIn("no steering once the wheels leave the ground; two bursts back to back, then 30 s for the ducts", fit)
         self.assertIn("NOT FITTED amphibious or flight gear", fit)           # a leap is not flight
         with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
             skill = f.read()
@@ -2536,7 +2573,7 @@ class BriefTests(unittest.TestCase):
 
     def test_it_leaves_the_toolkit_as_it_found_it(self):
         ok(*self.FULL)
-        self.assertIn("90 commands.", ok("tools"))
+        self.assertIn("92 commands.", ok("tools"))
         self.assertEqual(ok("tools", "--find", "plan", "the", "whole", "journey").splitlines()[1].split()[0], "brief")
 
 
@@ -3005,7 +3042,7 @@ class DailyTests(unittest.TestCase):
         self.assertEqual(field(out, "STOPS"), "2, adding %s [150 kW, tapering above 50%% as 'ev charge' does]" % core.fmt_hm(2 * took))
         # a car crossing is still a drive; a flight is not
         self.assertIn("ROUTE      London -> Paris: ~", ok("stops", "london", "paris", "--range", "300"))
-        for args, word in ((("stops", "warsaw", "washington", "--range", "500"), "leg 1 has no road (by air, WAW to DCA"),
+        for args, word in ((("stops", "warsaw", "washington", "--range", "500"), "leg 1 has no road and no car crossing on file: plan the stops for each drive on its own"),
                            (("stops", "warsaw", "lisbon"), "give --range"),
                            (("stops", "warsaw", "lisbon", "--range", "500", "--firn"), "leave out --range"),
                            (("stops", "warsaw", "lisbon", "--range", "500", "--kw", "150"), "needs both --battery and --kw"),
@@ -3038,7 +3075,7 @@ class DailyTests(unittest.TestCase):
         with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
             skill = f.read()
         self.assertIn("Guest driver. [maker] When someone other than the driver takes the wheel, the Veil, the Squall, the smoke, the "
-                      "spike and any mission module stay locked to the driver. The Cell and the Scales protect the guest regardless. "
+                      "spike, the Keen and any mission module stay locked to the driver. The Cell and the Scales protect the guest regardless. "
                       "You may open those systems to a commanding officer, provided the chain of command the driver has set is "
                       "followed.", skill)
         # what she did not pick stays out
@@ -3173,21 +3210,23 @@ class FieldTests(unittest.TestCase):
         fit = ok("record", "--fit")
         self.assertIn("FITTED     grapple [maker] - 50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a "
                       "climb; it cannot hold a powered armour", fit)
-        self.assertIn("FITTED     wading to 1.5 m [maker] - bonnet-deep, crawling", fit)
+        self.assertIn("FITTED     wading to 1.5 m [maker] - bonnet-deep, crawling at 4 km/h", fit)
         self.assertIn("FITTED     driving with nobody aboard [maker] - within the posted limits, lights on, not silent unless asked", fit)
         self.assertIn("it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next", fit)
         self.assertIn("NOT FITTED amphibious or flight gear [sheet]", fit)
-        self.assertIn("UNKNOWN    how much longer the Rime takes to re-cool after wading, and how fast he crawls in water - no figure", fit)
-        for gone in ("grapple reach and strength", "what a signature spike costs"):
+        self.assertIn("FITTED     sill anchors [maker] - spikes that drop from the sills and bite", fit)
+        for gone in ("grapple reach and strength", "what a signature spike costs", "how fast he crawls in water", "smoke screen capacity",
+                     "how long charging a docked armour takes", "how soon the Squall can fire again", "house rules in sensors.json"):
             self.assertNotIn(gone, fit)
         with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
             skill = f.read()
         for line in ("a grapple with 50 m of line and a pull of 3 t. You wade to 1.5 m, crawling, with your low cameras and lidar out "
                      "while you do. [maker]",
                      "The spike holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next "
-                     "[maker]. The other three have no figure yet.",
+                     "[maker]. The dispenser holds pressure dressings, tourniquets, burn gel, saline, a foil blanket, and a painkiller "
+                     "auto-injector that you offer and never give unasked [maker].",
                      "Nobody aboard. [maker] You keep the posted limits, lights on, and do not run silent unless asked. Faster only when "
-                     "the driver calls it urgent, and you say so."):
+                     "the driver calls it urgent, and you say so; only then do you board a ferry or a shuttle alone."):
             self.assertIn(line, skill)
 
     def test_spike_on_the_ledger(self):
@@ -3219,7 +3258,8 @@ class FieldTests(unittest.TestCase):
         self.assertEqual(field(out, "RANGE"), "%s km of 1,500 km [lore] -> %s km left" % (core.num(km, 1), core.num(1500 - km)))
         self.assertEqual(field(out, "RUNNING"), "lights on, not silent: an empty car that behaves [lore]")
         self.assertEqual(field(out, "RULE"), "[maker] With nobody aboard he keeps the posted limits, lights on, and does not run silent "
-                         "unless asked. Faster only when the driver calls it urgent, and he says so.")
+                         "unless asked. Faster only when the driver calls it urgent, and he says so. He boards a ferry or a shuttle "
+                         "alone only when it is urgent.")
         self.assertIn("THERE      about 2026-11-10 ", out)
         out = ok("summon", "--spot", "50.2599,19.0216", "--to", "gliwice", "--urgent", "--speed", "140", "--silent", "--range-left", "200")
         secs = km / 140.0 * 3600
@@ -3227,10 +3267,18 @@ class FieldTests(unittest.TestCase):
                          "says so [lore]" % (secs // 60, round(secs % 60)))
         self.assertTrue(field(out, "RUNNING").startswith("silent, as asked: "))
         self.assertEqual(field(out, "RANGE"), "%s km of 200 km [as given] -> %s km left" % (core.num(km, 1), core.num(200 - km)))
-        # water between: he cannot come
+        # water between, and a crossing on file: he waits, unless it is urgent [maker]
         out = ok("summon", "--spot", "51.5,-0.12", "--to", "paris")
-        self.assertIn("He does not fly, and whether he boards a ferry with nobody aboard has no ruling: he cannot come to you. "
-                      "Go to him: park --find", field(out, "NO ROAD"))
+        self.assertIn("He boards a ferry or a shuttle alone only when it is urgent [lore]: he stays where he is. Go to him (park --find), "
+                      "or call it urgent: --urgent --speed N", field(out, "WAITS"))
+        self.assertNotIn("ETA", out)
+        out = ok("summon", "--spot", "51.5,-0.12", "--to", "paris", "--urgent", "--speed", "130", "--mode", "car")
+        self.assertTrue(field(out, "CROSSING").endswith("Urgent, so he boards alone, and says so [lore]: by shuttle, Folkestone to "
+                                                        "Calais: 0h35m on board after 1h00m at the terminal"))
+        self.assertIn(" at 130 km/h average, with 1h35m for the crossing: URGENT, ", field(out, "ETA"))
+        # an ocean between: he cannot come
+        out = ok("summon", "--spot", "51.5,-0.12", "--to", "new york")
+        self.assertTrue(field(out, "NO ROAD").endswith("He does not fly: he cannot come to you. Go to him: park --find"))
         self.assertNotIn("ETA", out)
         for args, word in ((("summon", "--spot", "50.26,19.02", "--to", "gliwice", "--speed", "90"), "--speed belongs to --urgent"),
                            (("summon", "--spot", "50.26,19.02", "--to", "gliwice", "--urgent"), "--urgent needs --speed"),
@@ -3321,11 +3369,13 @@ class FieldTests(unittest.TestCase):
         self.assertEqual(field(out, "CELL"), "the water stands 1.12 m above his floor at full ride height (280 mm): the cell is sealed, "
                          "the cabin stays dry [lore]")
         self.assertTrue(field(out, "SENSES").startswith("cameras and lidar low on the body are out while he is in it [lore]"))
-        self.assertEqual(field(out, "AFTER"), "the Rime takes longer to re-cool afterwards [lore]: how much longer has no figure, so the driver rules")
+        self.assertEqual(field(out, "AFTER"), "for 10 min after he is out, a struck Rime patch takes twice as long to re-cool [lore]")
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... wait=54 wade")
         self.assertEqual(field(out, "ACROSS"), "60 m in 54 s at 4 km/h [as given]")
         self.assertIn("WADES      1.5 m of the 1.5 m he wades", ok("ford", "--depth", "1.5"))
-        self.assertEqual(field(ok("ford", "--depth", "0.9", "--width", "30"), "ACROSS"),
-                         "30 m: give --kmh for the time. His crawling pace in water has no figure")
+        out = ok("ford", "--depth", "0.9", "--width", "30")
+        self.assertEqual(field(out, "ACROSS"), "30 m in 27 s at 4 km/h [lore: his crawl in deep water]")
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... wait=27 wade")
         out = ok("ford", "--depth", "1.51")
         self.assertEqual(field(out, "REFUSED"), "1.51 m is deeper than the 1.5 m he wades [lore], and amphibious gear is not fitted [sheet]")
         self.assertIn("OFFER      another crossing; or, for a narrow channel, a jump: jump --gap WIDTH", out)
@@ -3335,6 +3385,386 @@ class FieldTests(unittest.TestCase):
                          "on file is spent")
         for key in ("WADES", "SENSES", "AFTER"):
             self.assertNotIn(key, out)
+
+
+class SecondRoundTests(unittest.TestCase):
+    """The maker's second round of rulings, as the tools keep them."""
+
+    def test_a_main_gun_and_the_mending(self):
+        out = ok("lattice", "hit=front:heavy:gun", "hit=left:heavy:gun", "hit=rear:heavy:gun", "mend", "wait=10m", "veil=full", "wait=1m",
+                 "veil=off", "wait=10m")
+        self.assertIn("lattice: holds, round 1 of the 2 it takes before mending", out)
+        self.assertIn("lattice: holds, round 2 of the 2 it takes before mending", out)
+        self.assertIn("lattice: its 2 rounds are spent; the stacked face stops this one and is itself spent", out)
+        self.assertIn("-> stopped, at the price of the rear face: only the cell stands behind it until t=1:15.0 [lore]", out)
+        self.assertIn("MEND       started at t=0:00.0: -60 km: range 1,500.0 -> 1,440.0 km; one round's worth is whole again at t=20:00.0 "
+                      "if the Veil stays down. He may drive meanwhile [lore]", out)
+        # a minute under the Veil is a minute the nanotech does not work
+        self.assertIn("MENDED     t=21:00.0 one main-gun round's worth of Lattice is whole again: it holds 1 of 2 [lore]", out)
+        self.assertTrue(field(out, "LEDGER").endswith(" | main-gun rounds taken 1/2"))
+        self.assertTrue(field(out, "STATE").endswith("/gun=1"))
+        # the rounds spent and the Veil up: it stops one more, and its emitters trip at once
+        out = ok("lattice", "hit=front:heavy:gun", "hit=left:heavy:gun", "veil=full", "hit=rear:heavy:gun")
+        self.assertIn("veil: stops it, and the emitters trip at once: Veil down, locked until fully cool", out)
+        self.assertIn("Veil off (LOCKED), heat 180/180 s", field(out, "LEDGER"))
+        # the round still to mend travels in the state token
+        state = field(ok("lattice", "hit=front:heavy:gun", "mend", "wait=5m"), "STATE")
+        self.assertIn("/gun=1/mend=900", state)
+        self.assertIn("MENDED     t=20:00.0", ok("lattice", "--state", state, "wait=15m"))
+        self.assertIn("MEND       REFUSED: the nanotech cannot work with the Veil up", ok("lattice", "hit=top:heavy:gun", "veil=full", "mend"))
+        self.assertIn("MEND       nothing to mend: the Lattice holds its 2 rounds", ok("lattice", "mend"))
+        self.assertEqual(run("lattice", "mend=2")[0], 2)
+
+    def test_smoke_is_three_screens_of_a_minute(self):
+        out = ok("lattice", "smoke=on", "wait=61", "smoke=on", "smoke=off", "smoke=on", "smoke=off", "smoke=on", "smoke=refill")
+        self.assertIn("SMOKE      screen out from the sills until t=1:00.0", out)
+        self.assertIn("SMOKE      t=1:00.0 the screen has thinned out: 2 of 3 left [lore]", out)
+        self.assertIn("0 of 3 screens left [lore]", out)
+        self.assertIn("SMOKE      REFUSED: all 3 screens are spent, and they are refilled in the bay [lore]", out)
+        self.assertIn("SMOKE      refilled: 3 screens of 60 s [by hand: back in the bay]", out)
+        self.assertNotIn("smoke=", field(out, "STATE"))
+        self.assertNotIn("/sl=", field(out, "STATE"))
+        self.assertTrue(field(ok("lattice", "smoke=on", "wait=20"), "STATE").endswith("/smoke=1/su=60/sl=2"))
+
+    def test_two_squall_bursts_then_the_ducts(self):
+        out = ok("lattice", "squall=5", "squall=3", "squall=2", "wait=30", "squall=2")
+        self.assertIn("one more burst may follow at once; the ducts are ready again 30 s after the last burst [lore]", out)
+        self.assertIn("both bursts are spent; the ducts are ready again 30 s after the last burst [lore]", out)
+        self.assertIn("SQUALL     REFUSED: both bursts are spent, and the ducts are not ready before t=0:30.0 [lore]", out)
+        self.assertIn("SQUALL     burst fired at t=0:30.0: -2 km: range 1,492.0 -> 1,490.0 km [lore]", out)
+        self.assertTrue(field(out, "STATE").endswith("/sq=1@30"))
+        # a lift and a catch are the two, and the jump tool books them so
+        self.assertEqual(field(ok("jump", "--gap", "60", "--speed", "60", "--load", "400", "--catch"), "LEDGER"),
+                         "book it in a sim with: lattice --state ... squall=11.5 wait=3.9 squall=11.5")
+
+    def test_rime_after_wading(self):
+        out = ok("lattice", "--temp", "0", "wade", "hit=front:heavy", "wait=11m", "hit=rear:heavy")
+        self.assertIn("WADE       out of deep water at t=0:00.0: until t=10:00.0 a struck Rime patch takes twice as long to re-cool, "
+                      "120 s at this temperature [lore]", out)
+        self.assertIn("soft until t=2:00.0", out)           # 60 s at freezing, doubled
+        self.assertIn("soft until t=12:00.0", out)          # eleven minutes on, the ordinary 60 s
+        self.assertIn("/wet=600", field(ok("lattice", "wade"), "STATE"))
+        self.assertEqual(run("lattice", "wade=3")[0], 2)
+
+    def test_grapple_footing(self):
+        soft = ("grapple", "--mass", "2500", "--slope", "90", "--ground", "soft")
+        self.assertTrue(field(ok(*soft), "FOOTING").startswith("HE SLIDES: 2,500 kg, and on soft ground he holds 1,500 kg [lore]."))
+        self.assertTrue(field(ok(*soft, "--anchors"), "FOOTING").startswith(
+            "anchored: the sill anchors bite and he holds the full 3,000 kg, pinned until they lift."))
+        self.assertEqual(field(ok("grapple", "--mass", "2500", "--slope", "90"), "FOOTING"),
+                         "he holds his ground: 2,500 kg of the 3,000 kg he holds on hard ground [lore]")
+        self.assertEqual(field(ok("grapple", "--mass", "1200", "--slope", "90", "--ground", "soft"), "FOOTING"),
+                         "he holds his ground: 1,200 kg of the 1,500 kg he holds on soft ground [lore]")
+        self.assertTrue(field(ok("grapple", "--self", "--load", "260", "--slope", "35", "--resist", "0.2"), "FOOTING").startswith(
+            "not his worry here: he is the one that moves"))
+
+    def test_the_figures_are_hers(self):
+        lore, sens = core.load_data("lore"), core.load_data("sensors")
+        self.assertEqual((lore["smoke"]["screens"], lore["smoke"]["seconds"]), (3, 60))
+        self.assertEqual((lore["gun"]["rounds"], lore["gun"]["mend_min"], lore["gun"]["mend_km"]), (2, 20, 60))
+        self.assertEqual((lore["grapple"]["soft_kg"], lore["ford"]["crawl_kmh"], lore["ford"]["rime_factor"], lore["ford"]["rime_window_s"]),
+                         (1500, 4, 2, 600))
+        self.assertEqual((lore["lattice"]["cradle_charge_min"], lore["lattice_tags"]["cradle_charge_min"]), (30, "maker"))
+        for key in ("smoke", "gun", "keen", "ram", "core"):
+            self.assertTrue(lore[key]["note"].startswith("[maker] "), key)
+        self.assertEqual(sens["label"], "the maker's figures")
+        self.assertEqual({k: v["reach"] for k, v in sens["sensors"].items()},
+                         {"optical": 4000, "thermal": 3000, "radar": 6000, "lidar": 400, "acoustic": 1500, "receiver": 10000})
+        self.assertEqual([sens["air"][k]["optical"] for k in ("rain", "snow", "fog", "dust", "smoke")], [0.8, 0.7, 0.6, 0.65, 0.55])
+        self.assertEqual([sens["light"][k]["optical"] for k in ("dusk", "night", "dark")], [0.85, 0.7, 0.55])
+        self.assertEqual(sens["cover"]["thin_reach_m"], 150)
+        fit = ok("record", "--fit")
+        self.assertIn("it holds pressure dressings, tourniquets, burn gel, saline and a foil blanket, and a painkiller auto-injector that he "
+                      "offers and never gives unasked", fit)
+        self.assertIn("FITTED     nanotech self-repair of the Lattice [maker]", fit)
+        self.assertIn("three screens of 60 s each, refilled in the bay", fit)
+
+
+class KeenTests(unittest.TestCase):
+    """His one fitted weapon: the maker's spec and her rulings on what it left open."""
+
+    def test_the_card(self):
+        out = ok("keen")
+        self.assertEqual(field(out, "KEEN"), "his one fitted weapon: a phased ultrasonic array in the lower front apron, steered by "
+                         "phasing over the front 120 degrees [maker]")
+        self.assertIn("LOW        blinds a camera or a lidar out to 150 m, while the beam is on it and 2 s after; nothing to people; "
+                      "0.5 km of range a second", out)
+        self.assertIn("HIGH       out to 30 m: laminated glass, a drone's rotors, a barricade of wood, plastic, sheet metal or loose "
+                      "masonry; 2 km of range a second; ends silent running", out)
+        self.assertIn("LIMIT      4 s at most; a full burst cools in 30 s, a shorter one in proportion", out)
+        self.assertIn("PEOPLE     never the high setting with anyone in the beam or behind the glass, short of the last resort", out)
+        cfg = core.load_data("lore")["keen"]
+        self.assertEqual((cfg["low_reach_m"], cfg["high_reach_m"], cfg["high_km_s"], cfg["low_fraction"], cfg["burst_s"], cfg["cool_s"],
+                          cfg["arc_deg"], cfg["linger_s"]), (150, 30, 2, 0.25, 4, 30, 120, 2))
+
+    def test_what_it_does_to_what(self):
+        out = ok("keen", "--target", "glass", "--at", "20")
+        self.assertEqual(field(out, "KEEN"), "the high setting on laminated glass at 20 m")
+        self.assertTrue(field(out, "WORKS").startswith("yes: it goes inside 1.8 s of the 4 s burst [derived: "))      # 4 x (20/30)^2
+        self.assertTrue(field(out, "COST").startswith("3.6 km of range, and 13.5 s to cool before a full burst is ready again [lore: "))
+        self.assertEqual(field(out, "SILENT"), "the high setting ends silent running [lore]")
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... keen=high:1.8")
+        self.assertTrue(field(ok("keen", "--target", "glass", "--at", "30"), "WORKS").startswith("yes: it goes inside 4 s of the 4 s burst"))
+        self.assertEqual(field(ok("keen", "--target", "glass", "--at", "45"), "WORKS"),
+                         "no: at 45 m it has 44% of what the job needs [derived: inverse square from its 30 m reach]")
+        out = ok("keen", "--target", "camera", "--at", "120", "--hold", "3")
+        self.assertEqual(field(out, "WORKS"), "yes: blind while the beam is on it and for 2 s after: 5 s for a 3 s burst [maker]")
+        self.assertTrue(field(out, "COST").startswith("1.5 km of range, and 22.5 s to cool"))
+        self.assertEqual(field(out, "SILENT"), "the low setting does not end silent running [lore]")
+        self.assertEqual(field(out, "PEOPLE"), "the low setting does nothing to people [maker]")
+        self.assertTrue(field(ok("keen", "--target", "lidar", "--at", "151"), "WORKS").startswith("no: at 151 m it has 99% of"))
+        for target, word in (("concrete", "no: the high setting does not break concrete, steel plate or armour [maker]"),
+                             ("steel", "no: the high setting does not break concrete, steel plate or armour [maker]"),
+                             ("foam", "no: heavy acoustic foam and sealed composite armour block it completely [maker]"),
+                             ("composite", "no: heavy acoustic foam and sealed composite armour block it completely [maker]"),
+                             ("person", "no: the low setting does nothing to people, and the high setting is never fired with anyone "
+                                        "in the beam, short of the last resort [maker]")):
+            out = ok("keen", "--target", target, "--at", "5")
+            self.assertEqual(field(out, "WORKS"), word, target)
+            self.assertNotIn("LEDGER", out, target)
+        self.assertEqual(field(ok("keen", "--target", "drone", "--at", "25", "--bearing", "70"), "ARC"),
+                         "70 degrees off his nose is outside the front 120: he turns first [maker]")
+        self.assertNotIn("ARC", ok("keen", "--target", "drone", "--at", "25", "--bearing", "-60"))
+        self.assertIn("that is a job for the high setting", ok("keen", "--target", "wood", "--at", "5", "--setting", "low"))
+        for args, word in ((("keen", "--target", "glass"), "--at is the distance"),
+                           (("keen", "--target", "tank", "--at", "5"), "the Keen is pointed at one of"),
+                           (("keen", "--target", "camera", "--at", "5", "--hold", "5"), "that is its thermal limit")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_on_the_ledger(self):
+        out = ok("lattice", "silent=on", "keen=low:3", "wait=10", "keen=high:2", "keen=high:4")
+        self.assertIn("KEEN       low setting for 3 s from t=0:00.0: -1.5 km: range 1,500.0 -> 1,498.5 km; cool for a full burst at "
+                      "t=0:25.5 [lore]", out)
+        self.assertIn("a camera or a lidar in the beam inside 150 m is blind until t=0:05.0; it does nothing to people [lore]", out)
+        # the low setting kept him silent; the high one does not
+        self.assertLess(out.index("KEEN       low"), out.index("SILENT     ended: the Keen's high setting is heard"))
+        self.assertIn("KEEN       high setting for 2 s from t=0:13.0: -4 km: range 1,498.5 -> 1,494.5 km; cool for a full burst at "
+                      "t=0:42.5 [lore]", out)
+        self.assertIn("cut off at its 4 s thermal limit: 0.3 s of the 4 asked for", out)
+        self.assertIn("never the high setting with anyone in the beam or behind the glass", out)
+        # a full burst, then nothing until it has cooled: 30 s for the whole of it, in proportion for less
+        state = field(ok("lattice", "keen=high:4"), "STATE")
+        self.assertTrue(state.endswith("/keen=4@4"))
+        self.assertIn("KEEN       REFUSED: at its thermal limit; it has cooled for a full burst at t=0:34.0 [lore]",
+                      ok("lattice", "--state", state, "keen=low:1"))
+        self.assertIn("KEEN       high setting for 2 s from t=0:19.0", ok("lattice", "--state", state, "wait=15", "keen=high:4"))
+        self.assertNotIn("keen=", field(ok("lattice", "--state", state, "wait=30"), "STATE"))
+        self.assertIn("KEEN       REFUSED: that burst needs 8 km of range and 5.0 km is left", ok("lattice", "--km", "5", "keen=high:4"))
+        self.assertEqual(run("lattice", "keen=medium:2")[0], 2)
+        self.assertEqual(run("lattice", "keen=high:0")[0], 2)
+
+    def test_canon(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("One weapon is fitted, at all times: the Keen, a phased ultrasonic array in the lower front apron, covering the "
+                      "front 120 degrees. [maker]", skill)
+        self.assertIn("- Never the high setting with anyone in the beam or behind the glass, short of the last resort in section 4, and "
+                      "you say so first. `keen` does the sum.", skill)
+        self.assertNotIn("No weapons are fitted by default", skill)
+        fit = ok("record", "--fit")
+        self.assertIn("FITTED     the Keen: a phased ultrasonic array in the lower front apron, his one fitted weapon [maker]", fit)
+        self.assertIn("UNKNOWN    whether a hit can knock out a fitted system, the Keen or a sensor - no figure", fit)
+        self.assertIn("WEAPONS  one fitted, the Keen; anything else is a mission module on the brief", ok("record", "--firn"))
+        with open(os.path.join(ROOT, "src", "playbooks", "chassis.md"), encoding="utf-8") as f:
+            self.assertIn("## The Keen", f.read())
+
+
+class RamTests(unittest.TestCase):
+    """What he drives through, by the maker's lists: Veil down, armour up, and what stops him either way."""
+
+    def test_the_lists(self):
+        cfg = core.load_data("lore")["ram"]
+        self.assertEqual((cfg["breach_km"], cfg["least_kmh"], cfg["rc_clean_cm"], cfg["rc_frame_cm"]),
+                         (5, {"light": 30, "wall": 60, "heavy": 90}, 30, 50))
+        out = ok("ram", "--through", "wood", "--speed", "40")
+        self.assertEqual(field(out, "RAM"), "wood at 40 km/h, the Veil down")
+        self.assertEqual(field(out, "THROUGH"), "yes: it needs 30 km/h at least, and he has 40 [maker]")
+        self.assertEqual(field(out, "COST"), "one heavy hit on his front face: the Rime there is soft until it re-cools [lore]")
+        self.assertEqual(field(out, "ABOARD"), "what a breach does to the people inside has no figure: the driver rules")
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... ram=wood@40")
+        out = ok("ram", "--through", "brick", "--speed", "70", "--veil")
+        self.assertEqual(field(out, "RAM"), "a brick or block wall at 70 km/h, armour up: the Veil on his front face, the Scales stacked "
+                         "behind it")
+        self.assertTrue(field(out, "COST").startswith("5 km of range for the breach: the Veil takes the blow and holds, and the face "
+                                                      "behind it stays fresh [lore]. The Veil's own 7.5 km a minute runs besides"))
+        self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... veil=partial:front ram=brick@70")
+        self.assertNotIn("FRAME", out)
+        # the heaviest he can breach cost him something no figure covers
+        for args in (("--through", "reinforced", "--thick", "40"), ("--through", "lorry")):
+            out = ok("ram", *args, "--speed", "95", "--veil")
+            self.assertEqual(field(out, "FRAME"), "it damages his frame [maker]: how much has no figure, the driver rules", args)
+        self.assertNotIn("FRAME", ok("ram", "--through", "reinforced", "--thick", "30", "--speed", "60", "--veil"))
+        self.assertEqual(field(ok("ram", "--through", "reinforced", "--thick", "51", "--veil"), "THROUGH"),
+                         "no: reinforced concrete over 50 cm stops him, armour up or not [maker]")
+        # least speed: 30 for the light things, 60 for walls and barriers, 90 for vehicles and the heaviest
+        for thing, kmh, verdict in (("sheet", 29, "no"), ("sheet", 30, "yes"), ("gate", 59, "no"), ("barrier", 60, "yes"),
+                                    ("car", 89, "no"), ("van", 90, "yes")):
+            self.assertTrue(field(ok("ram", "--through", thing, "--speed", str(kmh), "--veil"), "THROUGH").startswith(verdict + ": "),
+                            (thing, kmh))
+        self.assertEqual(field(ok("ram", "--through", "car", "--speed", "60", "--veil"), "THROUGH"),
+                         "no: at 60 km/h he is too slow: this needs 90 at least [maker]. What happens below that is the brief's to rule")
+        # with the Veil down a wall or a vehicle has no figure, and he says so rather than guess
+        out = ok("ram", "--through", "brick", "--speed", "70")
+        self.assertTrue(field(out, "THROUGH").startswith("no figure: with the Veil down there is none: his body is stronger than an "
+                                                         "ordinary SUV's, and how much stronger is the driver's to rule [maker]."))
+        self.assertNotIn("LEDGER", out)
+        for thing in ("bunker", "pier", "rock", "tank"):
+            for veil in ((), ("--veil",)):
+                self.assertEqual(field(ok("ram", "--through", thing, *veil), "THROUGH"),
+                                 "no: bunker walls, bridge piers, rock and tanks stop him, armour up or not [maker]")
+        self.assertEqual(field(ok("ram", "--through", "steel"), "THROUGH"),
+                         "no: with the Veil down, concrete, steel plate and armour stop him [maker]")
+        out = ok("ram", "--through", "cardboard", "--speed", "200")
+        self.assertEqual((field(out, "THROUGH"), field(out, "COST")), ("yes: it costs nothing, at any speed [maker]", "none"))
+        for args, word in ((("ram", "--through", "reinforced", "--veil"), "reinforced concrete needs its thickness in cm"),
+                           (("ram", "--through", "moon"), "Anything else has no figure"),
+                           (("ram", "--through", "wood", "--speed", "300"), "his governor holds him to 250 km/h")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_on_the_ledger(self):
+        out = ok("lattice", "ram=wood@40", "ram=brick@70", "veil=partial:front", "ram=brick@70", "ram=reinforced:40@95", "ram=car@60",
+                 "ram=rock", "ram=cardboard")
+        self.assertIn("RAM        t=0:00.0 wood at 40 km/h, Veil down: through, as one heavy hit on the front face [lore]", out)
+        self.assertIn("rime: bloomed and spread the load; soft until t=1:15.0", out)
+        self.assertIn("RAM        t=0:00.0 a brick or block wall at 70 km/h, Veil down: NO FIGURE: ", out)
+        self.assertIn("RAM        t=0:00.0 a brick or block wall at 70 km/h, armour up: through on the Veil, which holds: -5 km: range "
+                      "1,500.0 -> 1,495.0 km; the front face stays fresh [lore]", out)
+        self.assertIn("RAM        t=0:00.0 40 cm of reinforced concrete at 95 km/h, armour up: through on the Veil, which holds: -5 km: "
+                      "range 1,495.0 -> 1,490.0 km", out)
+        self.assertIn("\n           it damages his frame [maker]: how much has no figure, the driver rules\n", out)
+        self.assertIn("RAM        t=0:00.0 a car at 60 km/h, armour up: NOT THROUGH: at 60 km/h he is too slow", out)
+        self.assertIn("RAM        t=0:00.0 rock, armour up: NOT THROUGH: bunker walls, bridge piers, rock and tanks stop him", out)
+        self.assertIn("what stopping against it does to him and to those aboard has no figure: the driver rules", out)
+        self.assertIn("RAM        t=0:00.0 cardboard, armour up: through, and it costs nothing [lore]", out)
+        self.assertIn("range 1,490.0 km", field(out, "LEDGER"))
+        # a full Veil covers the front as well; one on another face does not
+        self.assertIn("armour up: through on the Veil", ok("lattice", "veil=full", "ram=gate@60"))
+        self.assertIn("Veil down: NO FIGURE", ok("lattice", "veil=partial:rear", "ram=gate@60"))
+        self.assertIn("it needs 30 km/h at least [maker]", ok("lattice", "ram=plastic"))
+        self.assertIn("REFUSED: the breach needs 5 km of range for the Veil and 3.0 km is left",
+                      ok("lattice", "--km", "3", "veil=partial:front", "ram=brick@70"))
+        self.assertEqual(run("lattice", "ram=moon")[0], 2)
+        self.assertEqual(run("lattice", "ram=")[0], 2)
+
+
+class FarSideTests(unittest.TestCase):
+    """A jump counts what lies beyond the gap when it is told, and he asks what a wall is before he refuses over it."""
+
+    SCENE = ("jump", "--gap", "30", "--rise", "5", "--load", "85", "--room", "40")
+
+    def test_the_cardboard_wall(self):
+        # the scene: 30 m gap, 5 m up, 85 kg aboard, 40 m of deck and then a wall, 200 km/h "is a must"
+        out = ok(*self.SCENE, "--speed", "200")
+        self.assertIn("down 104.9 m on, 70.1 m past his mark", field(out, "FLIGHT"))
+        self.assertEqual(field(out, "ROOM"), "40 m of clear ground past the far edge: he is still 2.2 m up where it ends, and comes down "
+                         "34.9 m beyond it [derived]")
+        self.assertEqual(field(out, "NO ROOM"), "at 200 km/h this jump does not fit the ground beyond it. What stands at the end of it "
+                         "decides what that means: ask, or look, before you answer")
+        self.assertEqual(field(out, "FASTEST"), "84 km/h at take-off is the most that lands and stops inside it, at 5.4 g at the "
+                         "worst [derived: dry asphalt, mu 0.8 typical; a model, not his figure]")
+        self.assertIn("run jump again with --speed 84 for that sum", out)
+        # at the speed it names he fits, and one more km/h does not
+        out = ok(*self.SCENE, "--speed", "84")
+        self.assertRegex(field(out, "ROOM"), r"^40 m of clear ground past the far edge: down 4\.[89] m in, 35\.[12] m left; he stops in "
+                                             r"34\.[0-9] m, with 0\.[0-9] m to spare \[derived: dry asphalt, mu 0\.8 typical; a model, not his figure\]$")
+        self.assertNotIn("NO ROOM", out)
+        v = 84 / 3.6
+        self.assertLessEqual(v * v / (2 * 0.8 * core.G), 40 - 4.85)
+        out = ok(*self.SCENE, "--speed", "85")
+        self.assertIn("NO ROOM", out)
+        self.assertIn("and is still doing ", field(out, "ROOM"))
+        # the braking is the stop tool's own
+        stop = field(ok("stop", "--from", "200", "--reaction", "0"), "BRAKING")
+        self.assertTrue(stop.startswith("196.7 m in "))
+        # a wet deck is a shorter list of speeds
+        self.assertTrue(field(ok(*self.SCENE, "--speed", "84", "--surface", "wet"), "FASTEST").startswith("66 km/h at take-off"))
+        # the most speed that fits may still be more than a spine takes, and the line says so
+        tight = field(ok("jump", "--gap", "30", "--rise", "5", "--room", "6", "--speed", "80", "--surface", "ice"), "FASTEST")
+        self.assertRegex(tight, r"^\d+ km/h at take-off is the most that lands and stops inside it, at [\d.]+ g at the worst: past what "
+                                r"a spine takes, so with anyone aboard no speed fits \[derived: ice, mu 0\.1 typical; a model, not his figure\]$")
+        code, _, err = run("jump", "--gap", "30", "--speed", "80", "--room", "3")
+        self.assertNotEqual(code, 0)
+        self.assertIn("--room is the clear ground past the far edge", err)
+
+    def test_without_room_nothing_beyond_the_gap_is_counted(self):
+        out = ok("jump", "--gap", "30", "--speed", "200", "--drop", "5", "--load", "85")
+        self.assertIn("what lies past the far edge is not counted: --room M checks that he lands and stops inside M metres", out)
+        self.assertEqual(field(out, "LIFT"), "no upward speed is needed: the drop alone carries him over; no burst [derived]")
+        self.assertNotIn("ROOM", out.replace("--room", ""))
+        self.assertNotIn("-4.9", out)
+
+    def test_he_asks_before_he_refuses(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("- Something in your way that you cannot name: look first, with whatever senses you have; then give both answers "
+                      "in one reply - if it is solid, no, and why; if it gives way, yes, and the cost - and ask which it is. With no "
+                      "time to ask, it is solid. You do not refuse over a wall you never asked about.", skill)
+        with open(os.path.join(ROOT, "src", "playbooks", "sims.md"), encoding="utf-8") as f:
+            sims = f.read()
+        self.assertIn("\"past his mark\" is not a margin of safety", sims)
+        self.assertIn("Then give both answers at once, if it is solid and if it gives way, and ask.", sims)
+
+
+class OwnSkinTests(unittest.TestCase):
+    """He is one of a kind and hard to mend: he spends himself when it buys something, and he is not a pushover."""
+
+    def setUp(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            self.skill = f.read()
+
+    def test_the_core_is_a_life(self):
+        self.assertIn("- One of a kind: your mind cannot be copied, cloned or backed up. Destroy the core and you are dead; a new core in "
+                      "this frame would be someone else. [maker]", self.skill)
+        self.assertIn("A life, or a mind with no backup, cannot. Yours is such a mind (section 1).", self.skill)
+        self.assertIn("FITTED     AI core: Neural Processor Core v5.1, Dragonscale architecture [sheet] - his mind cannot be copied, cloned "
+                      "or backed up", ok("record", "--fit"))
+        # so triage counts his core with every other life, and only his hull last
+        out = ok("triage", "hold: self=lost", "run: stranger=lost")
+        self.assertIn("TIE on the physical facts", out)
+        self.assertIn("LIVES      every life counts the same here, whichever side it is on, his own included: his core cannot be backed "
+                      "up. Only damage to his hull is counted last", out)
+        self.assertIn("RANK 1     wall", ok("triage", "right: construct=repair", "left: driver=lost", "wall: self=repair"))
+        self.assertIn("RANK 1     hull", ok("triage", "hull: self=repair", "core: self=lost"))
+
+    def test_he_is_not_spent_for_nothing(self):
+        self.assertNotIn("The car is the first thing spent", self.skill)
+        self.assertIn("The hull is spent before any life, without drama, when that buys something: a life, or the mission the driver "
+                      "set. For nothing, you do not offer it: every part is custom and hard to mend, and you say so.", self.skill)
+        self.assertIn("- If the driver damages you for no stated reason, you protect yourself and still never harm them: say no once, "
+                      "plainly; raise the Veil; turn a fresh face; back out of the line of fire; leave if it goes on. A test the driver "
+                      "declares with a brief is different: you agree to it, on the ledger.", self.skill)
+        self.assertIn("Your own skin. [maker] You are not a pushover: a hero car may be needed for the next mission. When someone else "
+                      "damages you and only you are at stake, leave first. If you cannot: the Veil, smoke, the spike, then the Keen or a "
+                      "module on their weapon, their sensors or their vehicle. A hard stun on the person is the very last resort. Never "
+                      "force that could kill, for the hull alone.", self.skill)
+        self.assertIn("- You never harm the driver.", self.skill)
+
+    def test_the_ledger_says_what_a_hit_did(self):
+        self.assertIn("What a hit did is what the ledger says: you invent no damage to your kit and no percentages.", self.skill)
+        with open(os.path.join(ROOT, "src", "playbooks", "sims.md"), encoding="utf-8") as f:
+            self.assertIn("whether a hit can knock out a fitted system has no figure, so you say so and the driver rules", f.read())
+
+    def test_where_the_toolkit_cannot_run(self):
+        self.assertIn("- [by hand] a sum you did yourself where the toolkit could not run (section 11.3)", self.skill)
+        self.assertIn("9. Where the toolkit cannot run, `boot` and the check cannot run either. Say so once. The person stays "
+                      "unconfirmed: you stay polite, do nothing in the driver's name and share nothing about them. [maker]", self.skill)
+        self.assertIn("A sum you then do yourself is tagged [by hand]: never signed with a tool's name, never given a tool's tags, and "
+                      "you neither count nor describe commands you cannot see. [maker]", self.skill)
+
+    def test_no_franchise_is_named(self):
+        """The maker's rule: no franchise names in the skill, short of the one place that was already there."""
+        found = []
+        for folder, _, names in os.walk(os.path.join(ROOT, "src")):
+            for name in names:
+                if name.endswith((".md", ".json", ".py")):
+                    with open(os.path.join(folder, name), encoding="utf-8") as f:
+                        text = f.read()
+                    found += [name] * len(re.findall(r"KITT|Knight Rider|WALL-E|Voyager|Asimov", text))
+        self.assertEqual(found, ["SKILL.md"])
 
 
 class PackageTests(unittest.TestCase):
@@ -3906,7 +4336,7 @@ class ScanTests(unittest.TestCase):
         self.assertNotIn("GIVES AWAY", out)
         self.assertIn("and who they are, if he has met them or has them on file [identify, for certain]", out)
         self.assertIn("CHANCE     their state: whether they move and breathe", out)
-        self.assertIn("[read: 58.33% on this look]", out)
+        self.assertIn("[read: 61.81% on this look]", out)
         out = ok("scan", "person", "--range", "30", "--smoke")
         self.assertIn("OPTICAL    reach 0 m (his own smoke): nothing at this range", out)
         self.assertIn("RADAR      reach", out)
@@ -3916,9 +4346,9 @@ class ScanTests(unittest.TestCase):
         self.assertIn("RADAR      reach 0 m: nothing at this range", hidden)
         thin = ok("scan", "person", "--range", "20", "--cover", "thin", "--state", "quiet")
         self.assertIn("behind a thin wall or a vehicle's skin; keeping quiet", thin)
-        self.assertIn("THERMAL    reach 60 m (through a thin wall): sure of: detect", thin)
-        self.assertIn("KNOWN      something alive is there", thin)
-        self.assertIn("nothing at this range", ok("scan", "person", "--range", "200", "--cover", "thin").split("THERMAL")[1].splitlines()[0])
+        self.assertIn("THERMAL    reach 150 m (through a thin wall): sure of: classify", thin)       # her ruling: thin walls read further
+        self.assertIn("KNOWN      a person or an animal, and how many [classify, for certain]", thin)
+        self.assertIn("nothing at this range", ok("scan", "person", "--range", "300", "--cover", "thin").split("THERMAL")[1].splitlines()[0])
         port = ok("scan", "--port")
         self.assertIn("PORT       the sample port in the cabin: one sample at a time, put in by hand [lore]", port)
         self.assertIn("in about a minute [lore]", port)

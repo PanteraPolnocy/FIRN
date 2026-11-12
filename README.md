@@ -58,13 +58,13 @@ Do not commit your filled-in `personal.json` to a public repository, and do not 
 |---|---|
 | Clock | `time`, `dst`, `meet`, `span`, `series` |
 | Ground | `brief`, `route`, `trip`, `convoy`, `tour`, `halfway`, `country`, `places`, `park` |
-| Sky | `sun`, `moon`, `weather`, `metar` |
-| Energy | `range`, `ev`, `fuel` |
-| Vehicle | `perf`, `stop`, `impact`, `corner`, `transfer`, `spring`, `gearing`, `tyre` |
+| Sky | `sun`, `moon`, `weather`, `metar`, `hotcar` |
+| Energy | `range`, `ev`, `fuel`, `stops`, `precondition` |
+| Vehicle | `perf`, `stop`, `overtake`, `impact`, `corner`, `transfer`, `spring`, `gearing`, `tyre` |
 | Racing | `laps`, `stint`, `pace` |
 | Combat | `roll`, `odds`, `lanchester`, `ttk`, `scenario`, `strike`, `blast`, `arc`, `lead`, `board`, `scan`, `armour`, `angle`, `spot` |
-| FIRN-01 | `lattice`, `jump`, `triage`, `record` |
-| Garage | `convert`, `obd`, `lights`, `service`, `compare`, `load`, `tow`, `fit` |
+| FIRN-01 | `lattice`, `jump`, `keen`, `ram`, `summon`, `intercept`, `grapple`, `escort`, `ford`, `triage`, `record` |
+| Garage | `convert`, `obd`, `lights`, `service`, `compare`, `mileage`, `load`, `tow`, `fit` |
 | Objects | `weigh`, `measure`, `analyse` |
 | Sound | `pitch`, `doppler`, `playlist`, `listen`, `cabin` |
 | Second Life | `lsl` |
@@ -91,8 +91,8 @@ Every number carries a tag: `[derived]` calculated exactly, `[estimate]` a model
 - **Road distances are estimates** (straight line times a factor) unless you have recorded a checked leg. `route` prints a live-map link for exactly that reason.
 - **He has no network and no sensors.** `metar`, `weather` and `brief` read figures you give them; `park` knows only the points you give it; the fatigue check knows the clock, not how anyone slept.
 - **Published limits are named where they are printed** (fatigue, loads, sound, g): they are yardsticks, not law for you and not a promise of safety.
-- **Games run on dated house rules.** Weapons, armour, spotting and sensors are game mechanics written for this skill; a ruleset you name outranks them.
-- **FIRN's range, shields, speed and jumps are fiction.** `perf --firn` says what the lore would mean in real physics, and says it is lore.
+- **Games run on dated house rules.** Weapons, armour and spotting are game mechanics written for this skill, and his sensors run on his maker's figures; a ruleset you name outranks them.
+- **FIRN's range, shields, speed, jumps and his one fitted weapon are fiction.** `perf --firn` says what the lore would mean in real physics, and says it is lore.
 
 The full list, command by command, is in [docs/limits.md](docs/limits.md).
 

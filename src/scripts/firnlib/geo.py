@@ -482,9 +482,8 @@ def land_phrases(a, b):
     """['on Hokkaido', 'elsewhere in Japan']: where each end is, for two lands from land_of."""
     where = [a[1], b[1]]
     if a[2] == b[2]:        # two pieces of one country
-        for i, land in enumerate((a, b)):
-            if land[0] == land[2]:
-                where[i] = "elsewhere " + land[1]
+        if b[0] == b[2]:    # said second, the rest of the country is 'elsewhere'; said first it needs no help
+            where[1] = "elsewhere " + b[1]
     return where
 
 
@@ -503,11 +502,12 @@ def land_note(p1, p2, mode, checked=False, via="auto"):
     if mode in table["through"].get(pair, ()):
         return None
     if mode in crossing.DRIVEN:
-        plan = crossing.plan(p1, p2, mode, via)
+        plan = crossing.plan(p1, p2, mode, "sea" if checked else via)     # a leg the driver has driven went by sea
         if checked:
             return plan["key"], "%s. The checked figure for this leg is taken to hold the crossing" % plan["why"], 0.0
         up = lambda text: text[0].upper() + text[1:]
-        return plan["key"], "%s. %s, in the total. %s" % (plan["why"], up(plan["summary"]), up(plan["small"])), \
+        ask = ". %s: 'route' plans either, with the --via named" % up(plan["ask"]) if plan.get("ask") else ""
+        return plan["key"], "%s. %s, in the total. %s%s" % (plan["why"], up(plan["summary"]), up(plan["small"]), ask), \
             plan["hours"] - plan["wheel_h"]
     where = land_phrases(a, b)
     apart = table["gaps"].get(pair) or "%s is %s and %s is %s. No road joins them" % (p1[0], where[0], p2[0], where[1])
@@ -599,8 +599,12 @@ def cmd_route(a):
     plans = {}          # leg number: how a drive gets across where no road joins the two ends
     timed_legs = 0
     for i, (p1, p2) in enumerate(zip(pts, pts[1:]), 1):
-        s, km, hours, tag, timed = estimate_leg(p1, p2, a.mode, a.speed, a.road, a.via)
-        plan = crossing.plan(p1, p2, a.mode, a.via, a.speed, a.road) if tag == "estimate" else None
+        via = a.via
+        if a.firn and via == "auto":       # he is the car: where a crossing on file carries him, he takes it
+            by_sea = crossing.plan(p1, p2, a.mode, "sea", a.speed, a.road)
+            via = "sea" if by_sea and by_sea["how"] == "ferry" else "auto"
+        s, km, hours, tag, timed = estimate_leg(p1, p2, a.mode, a.speed, a.road, via)
+        plan = crossing.plan(p1, p2, a.mode, via, a.speed, a.road) if tag == "estimate" else None
         timed_legs += 1 if timed else 0
         b = bearing_deg(p1[1], p1[2], p2[1], p2[2])
         legs.append((p1, p2, s, km, hours, b, tag))
@@ -617,6 +621,8 @@ def cmd_route(a):
             for part in plan["parts"][1:]:
                 more(part["text"])
             more("%s door to door [estimate]: %s" % (fmt_hm(plan["hours"]), plan["small"]))
+            if plan.get("ask"):
+                rec("ASK", plan["ask"])
             if plan.get("also"):
                 rec("OR", plan["also"])
             no_road = no_road or plan["how"] != "ferry"
@@ -627,7 +633,7 @@ def cmd_route(a):
         rec("LEG %d" % i, "%s -> %s | %s km %s | %s%s km %s | %03.0f %s%s" % (
             p1[0], p2[0], trim(s, 1), "great circle" if air else "straight", "~" if tag == "estimate" else "", num(km), what,
             b, compass(b), "" if tag == "estimate" else " [%s]" % tag))
-        sea = say_land(p1, p2, a.mode, tag, "leg %d" % i, a.via)
+        sea = say_land(p1, p2, a.mode, tag, "leg %d" % i, via)
         if sea:
             no_road = no_road or sea[0] == "NO ROAD"
         elif (a.mode in GROUND_MODES and not (land_of(p1) and land_of(p2))
@@ -1193,8 +1199,8 @@ def register(sub):
     p.add_argument("--speed", type=float, help="average km/h, overrides the mode")
     p.add_argument("--road", type=float, help="travel distance / straight distance, overrides the mode (car 1.25)")
     p.add_argument("--via", default="auto", choices=crossing.VIAS,
-                   help="where no road joins two points of a drive: auto takes a car crossing on file, else a plan by air, "
-                        "else a guess over water; air and sea force the one")
+                   help="where no road joins two points of a drive: auto takes the quicker of a car crossing on file and a "
+                        "plan by air, else a guess over water; sea keeps the car with you, air leaves it behind")
     p.add_argument("--break-every", type=float, help="hours between breaks (car 2; 0 for none)")
     p.add_argument("--break-min", type=int, help="minutes per break (car 15)")
     p.add_argument("--buffer", type=float, help="percent added on top (car 10)")

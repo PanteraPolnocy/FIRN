@@ -52,7 +52,8 @@
     "cell_air_min": 45,
     "cradle_cores": 2,
     "cradle_passengers": 2,
-    "cradle_charge_km": 100
+    "cradle_charge_km": 100,
+    "cradle_charge_min": 30
   },
   "lattice_tags": {
     "tiles": "maker", "forecast_ms": "maker", "weak_window_s": "maker",
@@ -60,14 +61,17 @@
     "rime_cold_at_c": "maker", "rime_warm_at_c": "maker",
     "veil_km_per_min": "maker", "veil_partial_fraction": "maker", "veil_overheat_s": "maker",
     "veil_cool_ratio": "maker", "cell_air_min": "maker", "cradle_cores": "maker",
-    "cradle_passengers": "maker", "cradle_charge_km": "maker"
+    "cradle_passengers": "maker", "cradle_charge_km": "maker",
+    "cradle_charge_min": "maker"
   },
   "squall": {
     "note": "The Squall, for the jump tool: a burst of air lifts him; it costs power, more for more mass and more distance; the suspension is built for the landing. A brief may set its own figures.",
     "km_per_tonne_ms": 0.18,
     "burst_s": 0.25,
     "landing_stroke_m": 0.5,
-    "margin_m": 4.85
+    "margin_m": 4.85,
+    "bursts": 2,
+    "again_s": 30
   },
   "assumptions": [
     "Rime re-cool: section 3 says the frost melts back over a minute or two and re-cools faster in winter. That is 60 s at 0 C or colder, 120 s at +20 C or warmer, a straight line between. [maker]",
@@ -89,6 +93,17 @@
     "A jump has no limit on g short of what would injure, knock out or kill someone aboard. Above that he warns the driver first, unless there is no time for an answer. [maker]",
     "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push, with 400 kWh in the bank; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [maker]"
   ],
+  "smoke": {
+    "screens": 3,
+    "seconds": 60,
+    "note": "[maker] He carries three smoke screens of 60 s each, refilled in the bay."
+  },
+  "gun": {
+    "rounds": 2,
+    "mend_min": 20,
+    "mend_km": 60,
+    "note": "[maker] The Lattice holds two rounds from a tank's main gun in all, until mended; each still counts as a heavy hit. After that the Veil stops one and its emitters trip at once; with the Veil down a stacked face stops one and is spent, with only the Cell behind it, until it re-cools. His nanotech mends one round's worth in 20 min for 60 km of range; he can drive while it works, but not with the Veil up."
+  },
   "spike": {
     "lock_s": 10,
     "km": 10,
@@ -98,14 +113,18 @@
   "grapple": {
     "line_m": 50,
     "pull_kg": 3000,
-    "note": "[maker] 50 m of line and a pull of 3 t, about his own weight: he drags himself out of a ditch or recovers a car. A hard pull costs range like a climb. It cannot hold a powered armour."
+    "soft_kg": 1500,
+    "note": "[maker] 50 m of line and a pull of 3 t, about his own weight: he drags himself out of a ditch or recovers a car. A hard pull costs range like a climb. It cannot hold a powered armour. He holds the full pull on hard ground (tarmac, rock, frozen earth) and 1.5 t on soft (mud, snow, ice, wet grass). Sill anchors hold the full pull wherever they bite, pin him until they lift, and tear up the ground: only if necessary."
   },
   "ford": {
     "depth_m": 1.5,
-    "note": "[maker] He wades to 1.5 m, bonnet-deep, crawling. Cameras and lidar low on the body are out while he is in it, and the Rime takes longer to re-cool afterwards."
+    "crawl_kmh": 4,
+    "rime_factor": 2,
+    "rime_window_s": 600,
+    "note": "[maker] He wades to 1.5 m, bonnet-deep, crawling at 4 km/h. Cameras and lidar low on the body are out while he is in it. For ten minutes after he is out, a struck Rime patch takes twice as long to re-cool."
   },
   "unmanned": {
-    "note": "[maker] With nobody aboard he keeps the posted limits, lights on, and does not run silent unless asked. Faster only when the driver calls it urgent, and he says so."
+    "note": "[maker] With nobody aboard he keeps the posted limits, lights on, and does not run silent unless asked. Faster only when the driver calls it urgent, and he says so. He boards a ferry or a shuttle alone only when it is urgent."
   },
   "recharge": {
     "spine_min": 10,
@@ -115,42 +134,47 @@
   "fit": {
     "note": "What is on the vehicle. In a sim, kit that is not listed here does not exist until the driver keeps it (SKILL.md section 12). Kit that was improvised once and is waiting for a decision lives under \"pending\" in personal.json.",
     "fitted": [
+      ["AI core: Neural Processor Core v5.1, Dragonscale architecture", "sheet", "his mind cannot be copied, cloned or backed up: destroy the core and he is dead, and a new core in the same frame would be someone else [maker]"],
       ["Scale Lattice: Scales, Rime, Veil, Cell", "maker", "section 3; costs tracked by the lattice tool"],
       ["survival cell: Faraday-shielded, self-sealing glazing, 45 min of independent air, fire suppression, pre-tensioning harnesses", "maker", "always on when anyone is inside"],
       ["positive-pressure cabin", "firn", "the cell holds a slight overpressure that keeps smoke and gas out; improvised in the first stress test, kept 10 November 2026"],
-      ["wound-care dispenser in the cell", "firn", "improvised in the first stress test, kept 10 November 2026; what it holds is not set"],
+      ["wound-care dispenser in the cell", "firn", "improvised in the first stress test, kept 10 November 2026. By the maker's ruling it holds pressure dressings, tourniquets, burn gel, saline and a foil blanket, and a painkiller auto-injector that he offers and never gives unasked"],
       ["silent running: bar dark, motors hushed, thermal masking", "maker", "excludes the Veil"],
       ["hardening against pulses and jamming", "maker", ""],
       ["charging spine in the bay", "maker", "a full bank in 10 minutes; on the road he takes what the charger gives, a little over an hour from empty at 350 kW"],
       ["sensors: cameras with low light, a thermal imager, radar, lidar, a microphone array, a receiver for radio and radar emissions", "maker", "a scout's reach; radar and lidar send out a signal and are off in silent running; the scan tool keeps their books in a sim"],
       ["sample port in the cabin", "maker", "one sample at a time, about a minute: what it is made of, and whether it is flammable, corrosive or toxic; not where it came from or who handled it"],
-      ["smoke screen from the sills", "maker", "breaks line of sight; capacity not set"],
+      ["smoke screen from the sills", "maker", "breaks line of sight; three screens of 60 s each, refilled in the bay"],
       ["multispectral smoke in that screen", "firn", "blinds thermal sights as well as eyes, where plain fog would not; improvised in the first stress test, kept 10 November 2026"],
       ["signature spike", "firn", "a deliberate burst of emissions that pulls a targeting system onto him and off someone else; improvised in the first stress test, kept 10 November 2026. By the maker's ruling it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next"],
-      ["armour cradle: clamps, power coupling, data spine", "maker", "up to two folded armour cores with two passengers aboard; charging one armour from empty costs 100 km of range"],
+      ["the Keen: a phased ultrasonic array in the lower front apron, his one fitted weapon", "maker", "low setting: blinds a camera or a lidar out to 150 m, while the beam is on it and 2 s after, and does nothing to people. High setting: out to 30 m it shatters laminated glass, stops drone rotors and clears barricades of wood, plastic, sheet metal or loose masonry; not concrete, steel plate or armour; blocked by heavy acoustic foam or sealed composite armour. 2 km of range a second on high, a quarter of that on low; 4 s at most, 30 s to cool after a full burst; the front 120 degrees; high ends silent running. Never the high setting with anyone in the beam or behind the glass, short of the last resort, and he says so first (the keen tool)"],
+      ["the hull as a ram", "maker", "Veil down: wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face. Armour up (the Veil on the front face): also brick and block walls, concrete road barriers, steel gates and shutters, a car or a van, at 5 km of range a breach with the face left fresh; reinforced concrete of 30 to 50 cm and a lorry too, at a cost to his frame. Bunker walls, bridge piers, rock and tanks stop him. 30, 60 or 90 km/h at least, by what is in the way (the ram tool)"],
+      ["armour cradle: clamps, power coupling, data spine", "maker", "up to two folded armour cores with two passengers aboard; charging one armour from empty costs 100 km of range and takes 30 min"],
       ["adaptive air suspension, 190 to 280 mm clearance", "maker", ""],
       ["tri-motor all-wheel drive, 1,150 hp peak", "sheet", "braking on reverse motor torque is a valid field option [maker]"],
       ["22 inch turbine-pattern rims on airless run-flat tyres", "maker", ""],
       ["speed governor at 250 km/h", "maker", "his own, not lifted for fun"],
       ["thin cool-blue light bar, front and tail", "maker", "his face, his voice light and the Veil emitter"],
-      ["grapple", "maker", "50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a climb; it cannot hold a powered armour"],
-      ["wading to 1.5 m", "maker", "bonnet-deep, crawling; cameras and lidar low on the body are out while he is in it, and the Rime takes longer to re-cool afterwards"],
-      ["driving with nobody aboard", "maker", "within the posted limits, lights on, not silent unless asked; faster only when the driver calls it urgent, and he says so"],
-      ["the Squall: ducts under the floor that throw a short burst of air downward", "maker", "lifts him over a gap, at a cost in range that grows with his mass and the distance (the jump tool); loud, so it ends silent running; a leap, not flight: no steering once the wheels leave the ground"],
+      ["grapple", "maker", "50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a climb; it cannot hold a powered armour; he holds the full pull on hard ground and 1.5 t on soft"],
+      ["sill anchors", "maker", "spikes that drop from the sills and bite: he holds the full 3 t wherever they can, and is pinned until they lift; they tear up the ground, so only if necessary"],
+      ["nanotech self-repair of the Lattice", "maker", "the Lattice holds two rounds from a tank's main gun in all; the nanotech mends one round's worth in 20 min for 60 km of range; he can drive while it works, but not with the Veil up"],
+      ["wading to 1.5 m", "maker", "bonnet-deep, crawling at 4 km/h; cameras and lidar low on the body are out while he is in it; for ten minutes afterwards a struck Rime patch takes twice as long to re-cool"],
+      ["driving with nobody aboard", "maker", "within the posted limits, lights on, not silent unless asked; faster only when the driver calls it urgent, and he says so; he boards a ferry or a shuttle alone only when it is urgent"],
+      ["the Squall: ducts under the floor that throw a short burst of air downward", "maker", "lifts him over a gap, at a cost in range that grows with his mass and the distance (the jump tool); loud, so it ends silent running; a leap, not flight: no steering once the wheels leave the ground; two bursts back to back, then 30 s for the ducts"],
       ["steering wheel and pedals", "sheet", "the driver may take the wheel whenever they like; no other mind drives him unless he hands over because he is damaged [maker]"]
     ],
     "not_fitted": [
-      ["weapons", "maker", "none by default; mission modules only when listed on the brief, and in his hands a module stops things (tyres, engines, sensors, weapons, a road), not people, short of the last resort in section 4"],
+      ["other weapons", "maker", "one weapon is fitted, the Keen; anything else is a mission module, only when listed on the brief. In his hands a weapon stops things (tyres, engines, sensors, weapons, a road), not people, short of the last resort in section 4"],
       ["a humanoid avatar, face or hologram", "maker", "by design"],
       ["amphibious or flight gear", "sheet", "not on the sheet"]
     ],
     "unknown": [
-      ["how the Lattice fares against a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],
-      ["how long charging a docked armour takes", "no figure"],
-      ["smoke screen capacity", "no figure"],
-      ["how much longer the Rime takes to re-cool after wading, and how fast he crawls in water", "no figure"],
-      ["how far each sensor reaches, to the metre", "house rules in sensors.json until the maker gives figures: a brief may set its own"],
-      ["how soon the Squall can fire again", "no figure"]
+      ["weapons heavier than a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],
+      ["how long the sill anchors take to bite and to lift", "no figure"],
+      ["what the overpressure in the cell holds against, and what gets past the multispectral smoke", "no figure"],
+      ["whether a hit can knock out a fitted system, the Keen or a sensor", "no figure: the ledger says what a hit did to the armour, and no more"],
+      ["what damage to his frame means, after he rams the heaviest things on his list", "no figure: the driver rules"],
+      ["what a breach or a ram does to the people aboard", "no figure: the driver rules"]
     ]
   },
   "bar": {
@@ -184,5 +208,33 @@
       "no chrome, no bright colours, no racing stripes",
       "no visible scale pattern on the paint unless the scene shows tiles moving"
     ]
+  },
+  "keen": {
+    "low_reach_m": 150,
+    "high_reach_m": 30,
+    "high_km_s": 2,
+    "low_fraction": 0.25,
+    "burst_s": 4,
+    "cool_s": 30,
+    "arc_deg": 120,
+    "linger_s": 2,
+    "note": "[maker] The Keen, his one fitted weapon: a phased ultrasonic array, transducer panels flush in the lower front apron, steered by phasing with no moving parts. Low setting: it blinds a camera or a lidar out to 150 m, while the beam is on it and for 2 s after, and does nothing to people. High setting: out to 30 m it shatters laminated glass, stops a drone's rotors and clears a barricade of wood, plastic, sheet metal or loose masonry inside one burst; not concrete, steel plate or armour. Heavy acoustic foam or sealed composite armour blocks it completely, and it weakens with the square of the distance. The high setting costs 2 km of range a second and ends silent running; the low costs a quarter of that and does not. Four seconds at most; a full burst needs 30 s to cool, a shorter one in proportion. It covers the front 120 degrees: for anything behind, he turns. He never fires the high setting with anyone in the beam or behind the glass, short of the last resort in his doctrine, and he says so first."
+  },
+  "ram": {
+    "breach_km": 5,
+    "least_kmh": {"light": 30, "wall": 60, "heavy": 90},
+    "rc_clean_cm": 30,
+    "rc_frame_cm": 50,
+    "free": ["cardboard", "tape", "a hedge"],
+    "light": ["wood", "plastic", "sheet metal", "loose masonry"],
+    "wall": ["a brick or block wall", "a concrete road barrier", "a steel gate or shutter", "reinforced concrete up to 30 cm"],
+    "vehicle": ["a car", "a van"],
+    "frame": ["reinforced concrete of 30 to 50 cm", "a lorry"],
+    "stops": ["a bunker wall", "a bridge pier", "rock", "a tank"],
+    "stops_veil_down": ["concrete", "steel plate", "armour"],
+    "note": "[maker] What he rams through. Cardboard, tape and hedges cost nothing. With the Veil down he goes through wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face; concrete, steel plate and armour stop him. With the armour up, the Veil on the front face and the Scales stacked behind it, he also goes through brick and block walls, concrete road barriers, steel gates and shutters, a car or a van: the Veil takes the blow and holds, each breach costs 5 km of range, and the face behind stays fresh. Reinforced concrete of 30 to 50 cm and a lorry he can breach the same way, and it damages his frame. Bunker walls, bridge piers, rock and tanks stop him. Least speed: 30 km/h for the light things, 60 km/h for walls and barriers, 90 km/h for vehicles and the heaviest. Even with the Veil down his body is stronger than an ordinary SUV's."
+  },
+  "core": {
+    "note": "[maker] His mind cannot be copied, cloned or backed up. Destroy the core and he is dead; a new core in the same frame would wipe his personality and doctrines, so it would be someone else. The hull can be mended, to a degree and at a price: every part is custom."
   }
 }

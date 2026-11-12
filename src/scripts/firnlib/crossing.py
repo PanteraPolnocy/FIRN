@@ -1,8 +1,9 @@
 """Where no road joins two places: how a journey by car gets across.
 
-In order: a car-carrying crossing on file (the car comes along), a plan by air (it stays behind), and as a last
-resort a guess over water at the pace of the ferries on file. Everything here is an estimate from geometry:
-which flight or which boat really runs is the airline's or the operator's to say.
+Two real ways: a car-carrying crossing on file (the car comes along) and a plan by air (it stays behind). Where both
+exist the quicker door to door leads and the other is named, with the question that decides it: does the car come
+along? With neither, a guess over water at the pace of the ferries on file. Everything here is an estimate from
+geometry: which flight or which boat really runs is the airline's or the operator's to say.
 """
 import re
 
@@ -149,8 +150,15 @@ def plan(p1, p2, mode, via="auto", speed=None, road=None):
     air = _by_air(p1, p2, mode, speed, road) if via != "sea" else None
     if via == "air":
         chosen = air or ferry or _by_guess(p1, p2)
-    else:
+    elif via == "sea" or not (ferry and air):
         chosen = ferry or air or _by_guess(p1, p2)
+    else:
+        chosen = ferry if ferry["hours"] <= air["hours"] else air
+    if ferry and air and via == "auto":
+        chosen["ask"] = ("does the car come along? With it: by %s, %s to %s, %s door to door (--via sea). Without it: by air, "
+                         "%s to %s, %s (--via air). The quicker leads here" % (
+                             ferry["link"]["kind"], ferry["ports"][0], ferry["ports"][1], fmt_hm(ferry["hours"]),
+                             air["ports"][0], air["ports"][1], fmt_hm(air["hours"])))
     gap = table["gaps"].get("|".join(sorted((a[0], b[0]))))
     where = geo.land_phrases(a, b)
     apart = gap or "%s is %s and %s is %s. No road joins them" % (p1[0], where[0], p2[0], where[1])
@@ -163,8 +171,8 @@ def plan(p1, p2, mode, via="auto", speed=None, road=None):
         chosen["short"] = "by %s, %s to %s" % (link["kind"], chosen["ports"][0], chosen["ports"][1])
         chosen["small"] = "%sa queue at the terminal or the port is not counted [%s]" % (
             link["more"] + ", and " if link.get("more") else "", link["source"])
-        if air and via == "auto":
-            chosen["also"] = "by air, without the car: %s door to door, %s to %s. Add --via air for that plan" % (
+        if air and via == "sea":
+            chosen["also"] = "by air, without the car: %s door to door, %s to %s. Use --via air for that plan" % (
                 fmt_hm(air["hours"]), air["ports"][0], air["ports"][1])
     elif chosen["how"] == "air":
         chosen["why"] = "%s, so this leg is planned by air and the car stays behind" % apart
@@ -175,7 +183,7 @@ def plan(p1, p2, mode, via="auto", speed=None, road=None):
         if not ferry:
             chosen["small"] += ". No car ferry is on file between these two: if the car must come, search for one"
         elif via == "air":
-            chosen["also"] = "with the car, by %s, %s to %s: %s door to door. Leave out --via air for that plan" % (
+            chosen["also"] = "with the car, by %s, %s to %s: %s door to door. Use --via sea for that plan" % (
                 ferry["link"]["kind"], ferry["ports"][0], ferry["ports"][1], fmt_hm(ferry["hours"]))
     else:
         short = [p[0] for p, port in ((p1, airport_for(p1)), (p2, airport_for(p2))) if not port]

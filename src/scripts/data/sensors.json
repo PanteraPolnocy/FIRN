@@ -1,6 +1,6 @@
 {
-  "note": "What FIRN-01's sensors make out in a simulation. Two things are in here. The maker's rulings: which sensors he carries, that they reach as a scout's do, what silent running, his own smoke and a thin wall do to them, and what they may tell him about a person (SKILL.md section 2). And house rules: every figure, for when the brief gives none. Game mechanics only; they model no real sensor. The figures are yours to edit, and a brief that names its own outranks them.",
-  "label": "house rules, November 2026",
+  "note": "What FIRN-01's sensors make out in a simulation. All of it is the maker's: which sensors he carries, that they reach as a scout's do, what silent running, his own smoke and a thin wall do to them, what they may tell him about a person (SKILL.md section 2), and every figure here, which she ruled on one by one. Game mechanics only; they model no real sensor. A brief that names its own figures outranks them.",
+  "label": "the maker's figures",
   "scale": 1.0,
   "levels": {
     "detect": {
@@ -48,19 +48,19 @@
   },
   "air": {
     "clear": {"optical": 1.0,  "thermal": 1.0,  "radar": 1.0, "lidar": 1.0,  "acoustic": 1.0},
-    "rain":  {"optical": 0.6,  "thermal": 0.6,  "radar": 0.9, "lidar": 0.5,  "acoustic": 0.6},
-    "snow":  {"optical": 0.4,  "thermal": 0.5,  "radar": 0.9, "lidar": 0.3,  "acoustic": 0.7},
-    "fog":   {"optical": 0.15, "thermal": 0.5,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
-    "dust":  {"optical": 0.3,  "thermal": 0.6,  "radar": 1.0, "lidar": 0.3,  "acoustic": 1.0},
-    "smoke": {"optical": 0.1,  "thermal": 0.7,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
+    "rain":  {"optical": 0.8,  "thermal": 0.6,  "radar": 0.9, "lidar": 0.5,  "acoustic": 0.6},
+    "snow":  {"optical": 0.7,  "thermal": 0.5,  "radar": 0.9, "lidar": 0.3,  "acoustic": 0.7},
+    "fog":   {"optical": 0.6,  "thermal": 0.5,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
+    "dust":  {"optical": 0.65, "thermal": 0.6,  "radar": 1.0, "lidar": 0.3,  "acoustic": 1.0},
+    "smoke": {"optical": 0.55, "thermal": 0.7,  "radar": 1.0, "lidar": 0.2,  "acoustic": 1.0},
     "thick": {"optical": 0.0,  "thermal": 0.0,  "radar": 1.0, "lidar": 0.0,  "acoustic": 1.0},
     "note": "thick is smoke made to blind thermal sights as well as eyes, such as his own"
   },
   "light": {
     "day":   {"optical": 1.0},
-    "dusk":  {"optical": 0.7},
-    "night": {"optical": 0.35},
-    "dark":  {"optical": 0.1},
+    "dusk":  {"optical": 0.85},
+    "night": {"optical": 0.7},
+    "dark":  {"optical": 0.55},
     "note": "only the cameras care; night is moon or street light, dark is neither"
   },
   "cover": {
@@ -68,7 +68,7 @@
     "partial": {"optical": 0.5, "thermal": 0.5, "radar": 0.7, "lidar": 0.5, "acoustic": 0.9, "receiver": 1.0},
     "thin":    {"optical": 0.0, "thermal": 0.25, "radar": 0.25, "lidar": 0.0, "acoustic": 0.7, "receiver": 0.9},
     "hidden":  {"optical": 0.0, "thermal": 0.0, "radar": 0.0, "lidar": 0.0, "acoustic": 0.4, "receiver": 0.7},
-    "thin_reach_m": 60,
+    "thin_reach_m": 150,
     "note": "partial is in a hedge, a doorway or a window; thin is behind a light wall or inside a vehicle's skin, which thermal and radar read through at a quarter strength and only at short range; hidden is behind a solid wall or underground"
   },
   "state": {

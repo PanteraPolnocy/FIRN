@@ -8,6 +8,7 @@ The figures for the burst are hers as well (lore.json).
 import math
 
 from .core import G, command, die, load_data, more, num, rec, trim
+from .dynamics import SURFACE_NAMES, SURFACES
 
 # published figures for people, named where each is printed
 LOC_G, LOC_S = 4.7, 5.0             # StatPearls, 'G-LOC' (Whinnery and Forster, 888 episodes): none below 4.7 g, none sooner than 5 s
@@ -54,6 +55,38 @@ def burst_g(dv, seconds):
     return dv / (seconds * G) + 1.0
 
 
+def room_check(vy0, vx, gap, h, room, mu):
+    """Where he comes down against the clear ground past the far edge, and whether he stops inside it.
+    Returns a dict: fits, airborne (still flying where the room ends), up (m above the ground there), beyond (m past the
+    end that he lands), into (m past the far edge that he lands), left, brake, end_kmh."""
+    _, landed, _, _ = flight(vy0, vx, h)
+    end = gap + room
+    brake = vx * vx / (2.0 * mu * G)
+    if landed > end + 1e-9:
+        t = end / vx
+        return {"fits": False, "airborne": True, "up": vy0 * t - 0.5 * G * t * t - h, "beyond": landed - end, "brake": brake}
+    left = end - landed
+    out = {"fits": brake <= left + 1e-9, "airborne": False, "into": landed - gap, "left": left, "brake": brake, "end_kmh": 0.0}
+    if not out["fits"]:
+        out["end_kmh"] = math.sqrt(max(0.0, vx * vx - 2.0 * mu * G * left)) * 3.6
+    return out
+
+
+def fastest_that_fits(reach, gap, h, ramp, room, mu, top_kmh, k_mass, range_km):
+    """The highest whole km/h at take-off from which he clears the gap, lands inside the room and stops inside it.
+    k_mass is km of range for each m/s of lift at his mass. None if no speed does."""
+    sin, cos = math.sin(math.radians(ramp)), math.cos(math.radians(ramp))
+    for kmh in range(int(top_kmh), 0, -1):
+        v = kmh / 3.6
+        vx, wheels = v * cos, v * sin
+        need = needed(reach, gap, h, vx)
+        if max(0.0, need - wheels) * k_mass > range_km:
+            continue
+        if room_check(max(need, wheels), vx, gap, h, room, mu)["fits"]:
+            return kmh
+    return None
+
+
 def cmd_jump(a):
     lore = load_data("lore")
     sq, ch = lore["squall"], lore["chassis"]
@@ -72,6 +105,9 @@ def cmd_jump(a):
     margin = a.margin if a.margin is not None else float(sq["margin_m"])
     if margin < 0:
         die("--margin is how far past the far edge to aim, 0 or more")
+    if a.room is not None and a.room <= margin:
+        die("--room is the clear ground past the far edge in metres, and it must be more than the %s m he aims past the edge "
+            "(--margin)" % trim(margin, 2))
     top = ch["top_kmh"] / 3.6
     h = a.rise - a.drop
     reach = a.gap + margin
@@ -100,8 +136,46 @@ def cmd_jump(a):
                                              " + %s kg aboard" % num(a.load) if a.load else ", nothing added", num(mass)))
     rec("FLIGHT", "%s s in the air, %s m up at the top, down %s m on%s [derived: no air drag, no steering once the wheels leave]" % (
         trim(air, 2), trim(peak, 1), trim(landed, 1),
-        ", %s m to spare" % trim(landed - reach, 1) if landed - reach > 0.05 else ""))
-    if lift <= 1e-9:
+        ", %s m past his mark" % trim(landed - reach, 1) if landed - reach > 0.05 else ""))
+    if a.room is None:
+        more("what lies past the far edge is not counted: --room M checks that he lands and stops inside M metres of clear ground")
+    else:
+        mu = SURFACES[a.surface]
+        grip = "[derived: %s, mu %s typical; a model, not his figure]" % (SURFACE_NAMES[a.surface], trim(mu, 2))
+        chk = room_check(max(need, wheels), vx, a.gap, h, a.room, mu)
+        lead = "%s m of clear ground past the far edge: " % trim(a.room, 1)
+        if chk["airborne"]:
+            rec("ROOM", lead + "he is still %s m up where it ends, and comes down %s m beyond it [derived]" % (
+                trim(chk["up"], 1), trim(chk["beyond"], 1)))
+        elif chk["fits"]:
+            rec("ROOM", lead + "down %s m in, %s m left; he stops in %s m, with %s m to spare %s" % (
+                trim(chk["into"], 1), trim(chk["left"], 1), trim(chk["brake"], 1), trim(chk["left"] - chk["brake"], 1), grip))
+        else:
+            rec("ROOM", lead + "down %s m in, %s m left; he needs %s m to stop and is still doing %s km/h where it ends %s" % (
+                trim(chk["into"], 1), trim(chk["left"], 1), trim(chk["brake"], 1), trim(chk["end_kmh"], 0), grip))
+        if not chk["fits"]:
+            rec("NO ROOM", "at %s km/h this jump does not fit the ground beyond it. What stands at the end of it decides what "
+                           "that means: ask, or look, before you answer" % trim(v * 3.6, 0))
+        best = fastest_that_fits(reach, a.gap, h, a.ramp, a.room, mu, ch["top_kmh"],
+                                 sq["km_per_tonne_ms"] * mass / 1000.0, ch["range_km"])
+        if best is None:
+            rec("FASTEST", "no take-off speed lands and stops inside that room %s" % grip)
+        else:
+            bx, bw = best / 3.6 * cos, best / 3.6 * sin
+            bneed = needed(reach, a.gap, h, bx)
+            bdown = flight(max(bneed, bw), bx, h)[3]
+            bg = max(burst_g(bneed - bw, sq["burst_s"]) if bneed - bw > 1e-9 else 1.0,
+                     bdown * bdown / (2.0 * G * sq["landing_stroke_m"]) + 1.0)
+            hurt = ("" if bg < SEAT_G[0] or a.unmanned else ": hard enough to hurt someone aboard" if bg < SPINE_G[0]
+                    else ": past what a spine takes, so with anyone aboard no speed fits")
+            rec("FASTEST", "%d km/h at take-off is the most that lands and stops inside it, at %s g at the worst%s %s" % (
+                best, trim(bg, 1), hurt, grip))
+            if abs(best - v * 3.6) > 0.5:
+                more("run jump again with --speed %d for that sum" % best)
+    if need <= 1e-9:
+        rec("LIFT", "no upward speed is needed: the drop alone carries him over; no burst [derived]")
+        km = 0.0
+    elif lift <= 1e-9:
         rec("LIFT", "%s m/s upward is needed and the ramp gives %s: no burst [derived]" % (trim(need, 1), trim(wheels, 1)))
         km = 0.0
     else:
@@ -153,15 +227,17 @@ def cmd_jump(a):
                 ease.append("--catch for the landing")
             more("what would ease it: " + ", ".join(ease))
     if km or catch:
-        rec("LEDGER", "book it in a sim with: lattice --state ... squall=%s wait=%s" % (trim(km + catch, 1), trim(air, 1)))
-    rec("RULES", "a Squall is loud and ends silent running; a leap, not flight; everyone strapped in, nothing loose [lore]")
+        rec("LEDGER", "book it in a sim with: lattice --state ... squall=%s wait=%s%s" % (
+            trim(km, 1), trim(air, 1), " squall=%s" % trim(catch, 1) if catch else ""))
+    rec("RULES", "a Squall is loud and ends silent running; a leap, not flight; everyone strapped in, nothing loose; two bursts "
+                 "back to back, then 30 s for the ducts [lore]")
 
 
 def register(sub):
     p = command(sub, "firn", "jump", cmd_jump,
                 "FIRN-01's Squall: what a jump over a gap takes in speed, lift, range and g, by his mass and the distance",
                 ["jump --gap 20 --speed 50 --load 260", "jump --gap 12 --ramp 15", "jump --gap 30 --speed 90 --ramp 10 --drop 4",
-                 "jump --gap 60 --speed 60 --load 400 --catch"])
+                 "jump --gap 60 --speed 60 --load 400 --catch", "jump --gap 30 --speed 200 --rise 5 --load 85 --room 40"])
     p.add_argument("--gap", type=float, required=True, help="the width to clear, m")
     p.add_argument("--speed", type=float, help="speed at take-off, km/h (leave out with --ramp for the speed a ramp alone needs)")
     p.add_argument("--ramp", type=float, default=0.0, help="angle of the take-off, degrees (default 0: flat ground)")
@@ -171,3 +247,7 @@ def register(sub):
     p.add_argument("--margin", type=float, help="how far past the far edge to aim, m (default: his own length)")
     p.add_argument("--catch", action="store_true", help="spend a second burst to catch the landing: more range, less g")
     p.add_argument("--unmanned", action="store_true", help="nobody is aboard")
+    p.add_argument("--room", type=float, help="clear ground past the far edge, m: checks that he lands and stops inside it, and "
+                                              "names the fastest take-off speed that does")
+    p.add_argument("--surface", choices=sorted(SURFACES), default="dry",
+                   help="the ground he brakes on past the gap, with --room: typical grip, as the stop tool uses (default dry)")
