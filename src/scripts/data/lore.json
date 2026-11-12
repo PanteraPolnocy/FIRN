@@ -1,5 +1,5 @@
 {
-  "note": "FIRN-01 canon as numbers, for the tools. Change a number here and every tool follows. Tags: sheet = the reference sheet, maker = Pantera's own words or decisions, firn = grown by FIRN in use and kept by the maker, derived = calculated from the others. Section numbers refer to SKILL.md. Nothing personal belongs here: that goes in personal.json.",
+  "note": "FIRN-01 canon as numbers, for the tools. Change a number here and every tool follows. Tags: sheet = the reference sheet, including plain conversions of its figures; maker = Pantera's own words and decisions, and anything she ordered and approved; firn = FIRN's own idea, which the maker ruled to keep. Section numbers refer to SKILL.md. Nothing personal belongs here: that goes in personal.json.",
   "maker_tag": "maker",
   "unit": "FIRN-01",
   "programme": "Project Chronos",
@@ -14,6 +14,7 @@
     "zero_100_s": 3.2,
     "kerb_kg": 2940,
     "top_kmh": 250,
+    "bank_kwh": 400,
     "seats": 4,
     "clearance_mm": [190, 280],
     "wheel_in": 22,
@@ -22,8 +23,8 @@
   },
   "chassis_tags": {
     "length_m": "sheet", "width_m": "sheet", "height_m": "sheet", "wheelbase_m": "sheet",
-    "power_hp": "sheet", "power_kw": "derived", "range_km": "sheet", "zero_100_s": "sheet",
-    "kerb_kg": "maker", "top_kmh": "maker", "seats": "maker", "clearance_mm": "maker",
+    "power_hp": "sheet", "power_kw": "sheet", "range_km": "sheet", "zero_100_s": "sheet",
+    "kerb_kg": "maker", "top_kmh": "maker", "bank_kwh": "maker", "seats": "maker", "clearance_mm": "maker",
     "wheel_in": "maker", "drive": "sheet", "core": "sheet"
   },
   "model": {
@@ -75,18 +76,19 @@
     "Veil cooling: heat drains one second per second while the Veil is down. After an overheat the Veil stays locked until the emitters are fully cool. [maker]",
     "A blast is an area load: nothing for the Scales to stack against, so they count as unstacked. The Rime spreads it and that face goes soft, as after any heavy hit. The Veil takes it if it is up. The Cell keeps pressure, fragments and gas out. [maker]",
     "A beam: the Veil scatters it while it is up, at its usual cost. Without the Veil the tiles cannot stack in time, and the Rime drinks the heat: that face goes soft at once, so a beam held on the same face a second time finds only the Cell. His own smoke lets a quarter through. [maker]",
-    "Through the smoke a beam is read one step down: a heavy one arrives as a light one, a light one does not matter. [derived from the quarter that gets through]",
+    "Through the smoke a beam is read one step down: a heavy one arrives as a light one, a light one does not matter. It follows from the quarter that gets through. [maker]",
     "Arrows, bolts, spears, blades, clubs and hammers are a light hit at most, whatever the arm behind them. Only something built for the job counts as heavy: a ram, a siege engine, a powered armour's blow. [maker]",
-    "Scales: a stack lasts for the 0.5 s weakness window. A heavy hit on another face inside that window meets thinned scales; on the opposite face it is the known weakness. A hit with no 40 ms forecast (a surprise) meets unstacked scales. [derived from section 3]",
-    "Silent running and the Veil exclude each other: the Veil lights the bar frost-white and silent running needs it dark. [derived from sections 2 and 3]",
+    "Scales: a stack lasts for the 0.5 s weakness window. A heavy hit on another face inside that window meets thinned scales; on the opposite face it is the known weakness. A hit with no 40 ms forecast (a surprise) meets unstacked scales. It follows from section 3. [maker]",
+    "Silent running and the Veil exclude each other: the Veil lights the bar frost-white and silent running needs it dark. It follows from sections 2 and 3. [maker]",
     "Sensors: he carries cameras with low light, a thermal imager, radar, lidar, a microphone array and a receiver for radio and radar emissions, and they reach as a scout's do. Radar and lidar send out a signal: in silent running they are off, and whenever they are on, anything that listens hears them at twice the range they see. [maker]",
     "His own Veil does not dim his sensors. His own smoke blinds his cameras, thermal imager and lidar as it blinds everyone's; radar and microphones still work in it. [maker]",
     "Walls: cameras and lidar stop at any wall. Thermal and radar read through a light wall or a vehicle's skin at a quarter strength, at short range only. Nothing of his reads through a solid wall but sound and radio. [maker]",
     "People: his sensors tell him that someone is there, how many, what they are doing and carrying, whether they move and breathe, warm or cooling, hurt or not; and who they are, if he has met them or has them on file. [maker]",
     "Sample port: one sample at a time, about a minute for a result. It says what the sample is made of and whether it is flammable, corrosive or toxic. It cannot say where a thing came from or who handled it. [maker]",
+    "The bank holds about 400 kWh, and a full Veil draws about 480 kW, more than half of the motors' peak. perf --firn worked both out from the sheet against real physics, and the maker made them canon on 12 November 2026. [maker]",
     "The Squall: the wheels alone do not push him upwards. A burst of air does, and it costs power: the heavier he is and the farther the jump, the more. The suspension is built for the landing. [maker]",
     "A jump has no limit on g short of what would injure, knock out or kill someone aboard. Above that he warns the driver first, unless there is no time for an answer. [maker]",
-    "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push if the bank holds the 400 kWh that perf --firn derives; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [house rules, 12 November 2026]"
+    "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push, with 400 kWh in the bank; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [house rules, 12 November 2026]"
   ],
   "fit": {
     "note": "What is on the vehicle. In a sim, kit that is not listed here does not exist until the driver keeps it (SKILL.md section 12). Kit that was improvised once and is waiting for a decision lives under \"pending\" in personal.json.",
@@ -115,7 +117,7 @@
     "not_fitted": [
       ["weapons", "maker", "none by default; mission modules only when listed on the brief, and in his hands a module stops things (tyres, engines, sensors, weapons, a road), not people, short of the last resort in section 4"],
       ["a humanoid avatar, face or hologram", "maker", "by design"],
-      ["amphibious or flight gear", "derived", "not on the sheet"]
+      ["amphibious or flight gear", "sheet", "not on the sheet"]
     ],
     "unknown": [
       ["how the Lattice fares against a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],

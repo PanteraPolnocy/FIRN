@@ -950,7 +950,7 @@ class LatticeKindsTests(unittest.TestCase):
         fit = ok("record", "--fit")
         self.assertIn("NOT FITTED weapons [maker] - none by default; mission modules only when listed on the brief, and in his hands", fit)
         lore = core.load_data("lore")
-        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 13)
+        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 17)
 
 
 class TriageTests(unittest.TestCase):
@@ -974,6 +974,30 @@ class VehicleTests(unittest.TestCase):
         out = ok("perf", "--firn")
         self.assertIn("858 kW (1,150 hp), 2,940 kg, AWD", out)
         self.assertIn("-> consistent", out)
+        self.assertIn("implies ~397 kWh in the capacitor bank [derived from lore]", out)
+        self.assertIn("canon rounds that to 400 kWh [lore]", out)
+
+    def test_canon_has_three_origins(self):
+        """Since 2.3.2 a line of canon comes from the maker, the sheet or FIRN himself. 'derived' is left to the tools,
+        where it means an exact sum."""
+        lore = core.load_data("lore")
+        origins = {"maker", "sheet", "firn"}
+        self.assertEqual(set(lore["chassis_tags"].values()) | set(lore["lattice_tags"].values()), {"maker", "sheet"})
+        self.assertEqual(set(row[1] for kind in ("fitted", "not_fitted") for row in lore["fit"][kind]), origins)
+        for line in lore["assumptions"]:
+            self.assertRegex(line, r"\[(maker|house rules, \d+ \w+ \d{4})\]$")
+        self.assertNotIn("derived", lore["note"])
+        self.assertEqual((lore["chassis"]["bank_kwh"], lore["chassis_tags"]["bank_kwh"]), (400, "maker"))
+        self.assertEqual((lore["chassis"]["power_kw"], lore["chassis_tags"]["power_kw"]), (858, "sheet"))
+        self.assertAlmostEqual(lore["chassis"]["power_hp"] * 0.7457, lore["chassis"]["power_kw"], delta=1)   # a plain conversion
+        self.assertIn("NOT FITTED amphibious or flight gear [sheet] - not on the sheet", ok("record", "--fit"))
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        tags = skill[skill.index("Provenance tags:"):skill.index("Your driver")]
+        self.assertEqual(re.findall(r"(?m)^- \[(\w+)\]", tags), ["maker", "sheet", "firn"])
+        self.assertNotIn("[maker][derived]", skill)
+        self.assertIn("Your bank holds about 400 kWh", skill)
+        self.assertIn("derived (calculated)", skill)                # the confidence tag for a number stays
         t = float(field(ok("perf", "--kw", "283", "--kg", "1580", "--drive", "rwd", "--front-pct", "38", "--cd", "0.29", "--area", "2.0"), "0-100").split()[0])
         self.assertTrue(3.6 <= t <= 4.6, t)
         t = float(field(ok("perf", "--hp", "110", "--kg", "1300", "--drive", "fwd"), "0-100").split()[0])
@@ -1099,8 +1123,90 @@ class SecondLifeTests(unittest.TestCase):
                 self.assertIn("run_time_permissions", src)
                 self.assertEqual("camera()" in src, camera)
         self.assertEqual(run("lsl", "skeleton", "--speed", "45")[0], 2)
-        self.assertEqual(run("lsl", "skeleton", "--type", "airplane")[0], 2)
         self.assertEqual(run("lsl", "skeleton", "--sit", "0,0,0")[0], 2)
+
+    def test_every_type_has_a_skeleton(self):
+        for kind in sl.TYPES:
+            for camera in (True, False):
+                src = sl.skeleton(kind, None, None, None, "0.3,0.0,0.5", "", camera)
+                self.assertEqual(sl.lint(src), [], "%s camera=%s" % (kind, camera))
+                self.assertEqual(desk.check_text(src, code=True), [])
+                for open_, close in ("{}", "()", "[]"):
+                    self.assertEqual(src.count(open_), src.count(close), kind)
+                self.assertIn("llSetVehicleType(VEHICLE_TYPE_%s);" % kind.upper(), src)
+                self.assertIn("STATUS_PHYSICS, TRUE", src)
+        plane = sl.skeleton("airplane", None, None, None, "0.3,0.0,0.5", "", True)
+        for line in ("float FWD = 25.0;", "float ROLL = 2.0;", "CONTROL_UP | CONTROL_DOWN, TRUE, FALSE);",
+                     "if (pressed & CONTROL_UP) gThrottle += 0.25;", "<FWD * gThrottle, 0.0, 0.0>", "VEHICLE_BANKING_EFFICIENCY, 1.0"):
+            self.assertIn(line, plane)
+        balloon = sl.skeleton("balloon", None, None, None, "0.3,0.0,0.5", "", True)
+        for line in ("float FWD = 4.0;", "float gHeight = 5.0;", "llSetVehicleFloatParam(VEHICLE_HOVER_HEIGHT, gHeight);",
+                     "VEHICLE_BUOYANCY, 1.0"):
+            self.assertIn(line, balloon)
+        sled = sl.skeleton("sled", None, None, 1.5, "0.3,0.0,0.5", "", True)
+        for line in ("float TURN = 1.5;", "vector SLIDE = <30.0, 1.0, 1000.0>;", "integer brake = level & CONTROL_BACK;"):
+            self.assertIn(line, sled)
+        self.assertNotIn("FWD", sled)                                       # no motor
+        self.assertNotIn("VEHICLE_LINEAR_MOTOR_DIRECTION, lin", sled)
+        for flag, kind in (("--speed", "sled"), ("--reverse", "sled"), ("--reverse", "airplane")):
+            code, out, err = run("lsl", "skeleton", "--type", kind, flag, "5")
+            self.assertEqual((code, out), (2, ""), (flag, kind))
+            self.assertIn("does not apply to a %s" % kind, err)
+        self.assertEqual(run("lsl", "skeleton", "--type", "hovercraft")[0], 2)
+
+    def test_new_skeletons_write_out_the_type_defaults(self):
+        """Airplane, balloon and sled start from the type's own defaults, but for the settings their comments name."""
+        data = core.load_data("lsl")["defaults"]
+        own = {("sled", "VEHICLE_ANGULAR_MOTOR_TIMESCALE"): 0.5}
+        names = {"gHeight": 5.0, "SLIDE": [30.0, 1.0, 1000.0]}
+        for kind in ("airplane", "balloon", "sled"):
+            for row in sl._TUNE[kind]:
+                want = [float(x) for x in re.findall(r"-?\d+\.?\d*", str(data[row[1]][kind]))]
+                got = names.get(row[2])
+                if got is None:
+                    got = [float(x) for x in re.findall(r"-?\d+\.?\d*", row[2])]
+                got = got if isinstance(got, list) else [got]
+                if (kind, row[1]) in own:
+                    self.assertEqual(got, [own[(kind, row[1])]])
+                    self.assertNotEqual(got, want[:1])
+                    self.assertEqual(len(row), 4, "a setting that leaves the default says so in a comment")
+                    continue
+                if len(want) == 1 and len(got) == 3:                        # 'N on all axes'
+                    want = want * 3
+                self.assertEqual(got, want, "%s %s" % (kind, row[1]))
+
+    def test_compiled_skeletons_are_the_ones_that_were_compiled(self):
+        """Pantera compiled these six in-world on 12 November 2026. If the generator's output changes, the claim in
+        sl.COMPILED no longer covers it: compile the new text in-world, then put its hash here."""
+        import hashlib
+        self.assertEqual(sl.COMPILED, dict((kind, "12 November 2026") for kind in sl.TYPES))
+        for args, want in ((("--type", "car", "--speed", "22", "--turn", "2.2"), "2747c567f482f60b123679e84af07dddf570584c10399c48cb317533616b10b6"),
+                           (("--type", "airplane"), "c4a6a0ada6412da64b25719bb3df4a5e99fa155cda696d311865113782397ed3"),
+                           (("--type", "balloon"), "3e27775dec0e9b34445b04aba255a10b6be8dba689bb9f4a2e16e9575fa51d5c"),
+                           (("--type", "sled"), "5dfe6a5d3480076f34d03f1e5330411f92c086f4296bf2aa5fdeb498f6b73945"),
+                           (("--type", "boat"), "798be03423c5c2d01132d821111b9b0d73e2e8146d252d06cbb08eb4921aa83b"),
+                           (("--type", "car", "--speed", "28", "--reverse", "8", "--turn", "3", "--sit", "0.2,0.4,0.6",
+                             "--anim", "drive", "--no-camera"), "2b7bebf1b4ae708ddf33deab37dc3e6d6f4794d49cb2d56173ba587c18e4c8c2")):
+            code, out, err = run("lsl", "skeleton", *args)
+            self.assertEqual((code, err), (0, ""), args)                    # a compiled type prints no note
+            self.assertEqual(hashlib.sha256(out.encode("utf-8")).hexdigest(), want, args)
+        for kind in sl.TYPES:
+            code, out, err = run("lsl", "skeleton", "--type", kind)
+            self.assertEqual(code, 0)
+            self.assertEqual("has not been compiled in-world yet" in err, kind not in sl.COMPILED, kind)
+            self.assertTrue(out.startswith("// Vehicle core: %s." % kind))
+
+    def test_lint_catches_a_member_read_off_an_expression(self):
+        """Found on 12 November 2026: '(llGetVel() / llGetRot()).x' does not compile, and the lint let it through."""
+        frame = "default\n{\n    state_entry()\n    {\n%s    }\n}\n"
+        for line, member in (("        float v = (llGetVel() / llGetRot()).x;\n", "x"), ("        float z = llGetPos().z;\n", "z"),
+                             ("        float s = llGetRot() .s;\n", "s"), ("        float y = <1.0, 2.0, 3.0>.y;\n", "y")):
+            found = sl.lint(frame % line)
+            self.assertEqual([(f[0], f[1]) for f in found], [(5, "WARN")], line)
+            self.assertIn("'.%s' on an expression" % member, found[0][2])
+        for line in ("        vector v = llGetVel() / llGetRot();\n        float x = v.x;\n",
+                     "        vector a;\n        if (a.x > .5) a.y = (a.z);\n", "        llOwnerSay(\"llGetPos().x\");   // llGetPos().x\n"):
+            self.assertEqual(sl.lint(frame % line), [], line)
 
     def test_lint_catches_the_usual_mistakes(self):
         bad = ("default\n{\n    state_entry()\n    {\n        llSetVehicleType(VEHICLE_TYPE_HOVERCRAFT);\n"

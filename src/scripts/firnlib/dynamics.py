@@ -170,6 +170,7 @@ def cmd_perf(a):
         kwh = wh_km * ch["range_km"] / 1000.0
         rec("BANK", "%s km at %s km/h implies ~%s kWh in the capacitor bank [derived from lore]" % (
             num(ch["range_km"]), num(cruise), num(kwh)))
+        more("canon rounds that to %s kWh [lore]" % num(ch["bank_kwh"]))
         veil_kw = wh_km * lore["lattice"]["veil_km_per_min"] * 60.0 / 1000.0
         share = veil_kw / (power / 1000.0)
         more("a full Veil at %s km of range a minute is ~%s kW, %s" % (

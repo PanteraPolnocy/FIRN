@@ -1,15 +1,17 @@
 """Second Life vehicles: the LSL vehicle reference, a lean script skeleton, and a lint for vehicle scripts.
 
 The reference tables in data/lsl.json were copied from the Second Life wiki and cross-checked against
-Linden Lab's own definitions. The skeleton uses only calls and constants from those tables. Nothing here
-has been compiled in-world: test in a sandbox region before trusting it with passengers.
+Linden Lab's own definitions. The skeleton uses only calls and constants from those tables. COMPILED says which
+skeletons the maker has compiled in-world, and when: the rest lint clean and say that they are untried.
 """
 import math
 import re
+import sys
 
 from .core import command, die, load_data, more, rec, table, trim
 
 TYPES = ["sled", "car", "boat", "airplane", "balloon"]
+COMPILED = dict((kind, "12 November 2026") for kind in TYPES)
 
 _TUNE = {
     "car": [
@@ -38,18 +40,156 @@ _TUNE = {
         ("F", "VEHICLE_VERTICAL_ATTRACTION_EFFICIENCY", "0.5"),
         ("F", "VEHICLE_VERTICAL_ATTRACTION_TIMESCALE", "2.0"),
     ],
+    # the three below are the type's own defaults (lsl.json), written out, except where a comment says otherwise
+    "airplane": [
+        ("V", "VEHICLE_LINEAR_FRICTION_TIMESCALE", "<200.0, 10.0, 5.0>"),
+        ("V", "VEHICLE_ANGULAR_FRICTION_TIMESCALE", "<20.0, 20.0, 20.0>"),
+        ("F", "VEHICLE_LINEAR_MOTOR_TIMESCALE", "2.0"),
+        ("F", "VEHICLE_LINEAR_MOTOR_DECAY_TIMESCALE", "60.0"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_TIMESCALE", "4.0"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_DECAY_TIMESCALE", "8.0"),
+        ("F", "VEHICLE_HOVER_TIMESCALE", "1000.0", "300 or more: no hover"),
+        ("F", "VEHICLE_BUOYANCY", "0.0"),
+        ("F", "VEHICLE_LINEAR_DEFLECTION_EFFICIENCY", "0.5"),
+        ("F", "VEHICLE_LINEAR_DEFLECTION_TIMESCALE", "0.5"),
+        ("F", "VEHICLE_ANGULAR_DEFLECTION_EFFICIENCY", "1.0"),
+        ("F", "VEHICLE_ANGULAR_DEFLECTION_TIMESCALE", "2.0"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_EFFICIENCY", "0.9"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_TIMESCALE", "2.0"),
+        ("F", "VEHICLE_BANKING_EFFICIENCY", "1.0"),
+        ("F", "VEHICLE_BANKING_MIX", "0.7"),
+        ("F", "VEHICLE_BANKING_TIMESCALE", "2.0"),
+    ],
+    "balloon": [
+        ("V", "VEHICLE_LINEAR_FRICTION_TIMESCALE", "<5.0, 5.0, 5.0>"),
+        ("V", "VEHICLE_ANGULAR_FRICTION_TIMESCALE", "<10.0, 10.0, 10.0>"),
+        ("F", "VEHICLE_LINEAR_MOTOR_TIMESCALE", "5.0"),
+        ("F", "VEHICLE_LINEAR_MOTOR_DECAY_TIMESCALE", "60.0"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_TIMESCALE", "6.0"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_DECAY_TIMESCALE", "10.0"),
+        ("F", "VEHICLE_HOVER_HEIGHT", "gHeight"),
+        ("F", "VEHICLE_HOVER_EFFICIENCY", "0.8"),
+        ("F", "VEHICLE_HOVER_TIMESCALE", "10.0"),
+        ("F", "VEHICLE_BUOYANCY", "1.0"),
+        ("F", "VEHICLE_LINEAR_DEFLECTION_EFFICIENCY", "0.0"),
+        ("F", "VEHICLE_ANGULAR_DEFLECTION_EFFICIENCY", "0.0"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_EFFICIENCY", "1.0"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_TIMESCALE", "1000.0"),
+        ("F", "VEHICLE_BANKING_EFFICIENCY", "0.0"),
+    ],
+    "sled": [
+        ("V", "VEHICLE_LINEAR_FRICTION_TIMESCALE", "SLIDE"),
+        ("V", "VEHICLE_ANGULAR_FRICTION_TIMESCALE", "<1000.0, 1000.0, 1000.0>"),
+        ("F", "VEHICLE_LINEAR_MOTOR_TIMESCALE", "1000.0", "no motor: gravity moves it"),
+        ("F", "VEHICLE_LINEAR_MOTOR_DECAY_TIMESCALE", "120.0"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_TIMESCALE", "0.5", "the type's own 1000.0 would be no steering at all"),
+        ("F", "VEHICLE_ANGULAR_MOTOR_DECAY_TIMESCALE", "120.0"),
+        ("F", "VEHICLE_LINEAR_DEFLECTION_EFFICIENCY", "1.0"),
+        ("F", "VEHICLE_LINEAR_DEFLECTION_TIMESCALE", "1.0"),
+        ("F", "VEHICLE_ANGULAR_DEFLECTION_EFFICIENCY", "0.0"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_EFFICIENCY", "1.0"),
+        ("F", "VEHICLE_VERTICAL_ATTRACTION_TIMESCALE", "1000.0"),
+    ],
+}
+
+_DRIVE_CONSTS = """float FWD = {fwd};          // m/s; the engine clamps the linear motor near 30
+float REV = {rev};
+float TURN = {turn};         // rad/s; the engine caps the angular motor at 4*PI
+"""
+_STEER = """        if (level & (CONTROL_LEFT | CONTROL_ROT_LEFT)) ang.z = TURN;
+        else if (level & (CONTROL_RIGHT | CONTROL_ROT_RIGHT)) ang.z = -TURN;
+"""
+_DRIVE_CONTROL = """        vector lin;
+        vector ang;
+        if (level & CONTROL_FWD) lin.x = FWD;
+        else if (level & CONTROL_BACK) lin.x = -REV;
+""" + _STEER + """        if (lin.x < 0.0) ang.z = -ang.z;
+        llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, lin);
+        llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ang);
+"""
+_ALL_SIX = "CONTROL_FWD | CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_ROT_LEFT | CONTROL_ROT_RIGHT"
+
+# What differs from one type to the next. speed, reverse and turn are the defaults; None means the type has no use for it.
+_KINDS = {
+    "car": {"verb": "Drive", "speed": 20.0, "reverse": 6.0, "turn": 2.0, "header": "", "consts": _DRIVE_CONSTS, "globals": "",
+            "park": "", "mask": _ALL_SIX, "control": _DRIVE_CONTROL},
+    "boat": {"verb": "Sail", "speed": 20.0, "reverse": 6.0, "turn": 2.0, "header": "", "consts": _DRIVE_CONSTS, "globals": "",
+             "park": "", "mask": _ALL_SIX, "control": _DRIVE_CONTROL},
+    "airplane": {
+        "verb": "Fly", "speed": 25.0, "reverse": None, "turn": 2.0,
+        "header": "// Keys: forward and back pitch the nose down and up, left and right roll, PgUp and PgDn open and close the throttle.\n"
+                  "// The settings are the type's own defaults, written out: a place to start, not a tuned aircraft.\n",
+        "consts": "float FWD = {fwd};          // m/s at full throttle; the engine clamps the linear motor near 30\n"
+                  "float ROLL = {turn};         // rad/s; the engine caps the angular motor at 4*PI\n"
+                  "float PITCH = 1.0;        // rad/s\n",
+        "globals": "float gThrottle = 0.0;     // 0.0 to 1.0, a quarter for each press\n",
+        "park": "    gThrottle = 0.0;\n", "mask": _ALL_SIX + " | CONTROL_UP | CONTROL_DOWN",
+        "control": """        vector ang;
+        integer pressed = level & edge;
+        if (pressed & CONTROL_UP) gThrottle += 0.25;
+        if (pressed & CONTROL_DOWN) gThrottle -= 0.25;
+        if (gThrottle > 1.0) gThrottle = 1.0;
+        if (gThrottle < 0.0) gThrottle = 0.0;
+        if (level & CONTROL_FWD) ang.y = PITCH;
+        else if (level & CONTROL_BACK) ang.y = -PITCH;
+        if (level & (CONTROL_LEFT | CONTROL_ROT_LEFT)) ang.x = -ROLL;
+        else if (level & (CONTROL_RIGHT | CONTROL_ROT_RIGHT)) ang.x = ROLL;
+        llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, <FWD * gThrottle, 0.0, 0.0>);
+        llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ang);
+"""},
+    "balloon": {
+        "verb": "Fly", "speed": 4.0, "reverse": 2.0, "turn": 0.5,
+        "header": "// Keys: forward, back and turn; PgUp and PgDn raise and lower the height it hovers at.\n"
+                  "// The settings are the type's own defaults, written out: a place to start, not a tuned balloon.\n",
+        "consts": _DRIVE_CONSTS + "float STEP = 2.0;         // m of height for each press\n",
+        "globals": "float gHeight = 5.0;       // m above the ground or the water\n",
+        "park": "", "mask": _ALL_SIX + " | CONTROL_UP | CONTROL_DOWN",
+        "control": """        vector lin;
+        vector ang;
+        integer pressed = level & edge;
+        if (pressed & CONTROL_UP) gHeight += STEP;
+        if (pressed & CONTROL_DOWN) gHeight -= STEP;
+        if (gHeight < 1.0) gHeight = 1.0;
+        if (gHeight > 100.0) gHeight = 100.0;
+        if (pressed & (CONTROL_UP | CONTROL_DOWN)) llSetVehicleFloatParam(VEHICLE_HOVER_HEIGHT, gHeight);
+        if (level & CONTROL_FWD) lin.x = FWD;
+        else if (level & CONTROL_BACK) lin.x = -REV;
+""" + _STEER + """        llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, lin);
+        llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ang);
+"""},
+    "sled": {
+        "verb": "Ride", "speed": None, "reverse": None, "turn": 1.0,
+        "header": "// Keys: left and right steer, back brakes. It has no motor: gravity moves it.\n"
+                  "// The settings are the type's own defaults, written out, but for the steering: a place to start.\n",
+        "consts": "float TURN = {turn};         // rad/s; the engine caps the angular motor at 4*PI\n"
+                  "vector SLIDE = <30.0, 1.0, 1000.0>;\n"
+                  "vector BRAKE = <2.0, 1.0, 1000.0>;    // friction while the back key is held\n",
+        "globals": "integer gBraking = FALSE;\n",
+        "park": "    llSetVehicleVectorParam(VEHICLE_LINEAR_FRICTION_TIMESCALE, SLIDE);\n    gBraking = FALSE;\n",
+        "mask": "CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_ROT_LEFT | CONTROL_ROT_RIGHT",
+        "control": """        vector ang;
+        integer brake = level & CONTROL_BACK;
+        if (brake && !gBraking)
+        {
+            llSetVehicleVectorParam(VEHICLE_LINEAR_FRICTION_TIMESCALE, BRAKE);
+            gBraking = TRUE;
+        }
+        else if (!brake && gBraking)
+        {
+            llSetVehicleVectorParam(VEHICLE_LINEAR_FRICTION_TIMESCALE, SLIDE);
+            gBraking = FALSE;
+        }
+""" + _STEER + """        llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ang);
+"""},
 }
 
 _SKELETON = """// Vehicle core: {kind}. Forward is the root prim's local +X, left is +Y, up is +Z.
 // If the build faces another way, set VEHICLE_REFERENCE_FRAME rather than re-rotating prims.
-float FWD = {fwd};          // m/s; the engine clamps the linear motor near 30
-float REV = {rev};
-float TURN = {turn};         // rad/s; the engine caps the angular motor at 4*PI
-vector SIT = <{sit}>;
+{header}{consts}vector SIT = <{sit}>;
 string ANIM = "{anim}";            // an animation in this prim's inventory; "" keeps the default sit
 
 key gPilot = NULL_KEY;
-
+{globals}
 tune()
 {{
     llSetVehicleType({vtype});
@@ -60,7 +200,7 @@ park()
 {{
     llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, ZERO_VECTOR);
     llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ZERO_VECTOR);
-    llSetStatus(STATUS_PHYSICS, FALSE);
+{park}    llSetStatus(STATUS_PHYSICS, FALSE);
 }}
 
 default
@@ -117,23 +257,14 @@ default
         }}
 {perm_camera}        if (p & PERMISSION_TAKE_CONTROLS)
         {{
-            llTakeControls(CONTROL_FWD | CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_ROT_LEFT | CONTROL_ROT_RIGHT, TRUE, FALSE);
+            llTakeControls({mask}, TRUE, FALSE);
             llSetStatus(STATUS_PHYSICS, TRUE);
         }}
     }}
 
     control(key id, integer level, integer edge)
     {{
-        vector lin;
-        vector ang;
-        if (level & CONTROL_FWD) lin.x = FWD;
-        else if (level & CONTROL_BACK) lin.x = -REV;
-        if (level & (CONTROL_LEFT | CONTROL_ROT_LEFT)) ang.z = TURN;
-        else if (level & (CONTROL_RIGHT | CONTROL_ROT_RIGHT)) ang.z = -TURN;
-        if (lin.x < 0.0) ang.z = -ang.z;
-        llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, lin);
-        llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, ang);
-    }}
+{control}    }}
 }}
 """
 
@@ -160,9 +291,17 @@ def _f(x):
 
 
 def skeleton(kind, fwd, rev, turn, sit, anim, camera):
-    if kind not in _TUNE:
-        die("a skeleton exists for: %s. For the other types start from 'lsl defaults --type TYPE'." % ", ".join(sorted(_TUNE)))
-    if not 0 < fwd <= 30 or not 0 <= rev <= 30:
+    """The script for one vehicle type. fwd, rev and turn may be None: the type's own default is used."""
+    if kind not in _KINDS:
+        die("a skeleton exists for: %s" % ", ".join(TYPES))
+    k = _KINDS[kind]
+    for flag, value, key in (("--speed", fwd, "speed"), ("--reverse", rev, "reverse")):
+        if value is not None and k[key] is None:
+            die("%s does not apply to a %s: it has no %s" % (flag, kind, "motor" if kind == "sled" else "reverse"))
+    fwd = k["speed"] or 0.0 if fwd is None else fwd
+    rev = k["reverse"] or 0.0 if rev is None else rev
+    turn = k["turn"] if turn is None else turn
+    if (k["speed"] is not None and not 0 < fwd <= 30) or not 0 <= rev <= 30:
         die("speeds are in m/s, up to 30: the engine clamps the linear motor there")
     if not 0 < turn <= 12.56:
         die("turn rate is in rad/s, up to 4*PI (12.56)")
@@ -175,15 +314,17 @@ def skeleton(kind, fwd, rev, turn, sit, anim, camera):
     if '"' in anim or "\\" in anim:
         die("the animation name cannot contain quotes or backslashes")
     lines = []
-    for kind_, name, value in _TUNE[kind]:
-        fn = "llSetVehicleFloatParam" if kind_ == "F" else "llSetVehicleVectorParam"
-        lines.append("    %s(%s, %s);" % (fn, name, value))
+    for row in _TUNE[kind]:
+        fn = "llSetVehicleFloatParam" if row[0] == "F" else "llSetVehicleVectorParam"
+        lines.append("    %s(%s, %s);%s" % (fn, row[1], row[2], "    // " + row[3] if len(row) > 3 else ""))
     perms = "PERMISSION_TAKE_CONTROLS | PERMISSION_TRIGGER_ANIMATION"
     if camera:
         perms += " | PERMISSION_CONTROL_CAMERA"
     return _SKELETON.format(
-        kind=kind, fwd=_f(fwd), rev=_f(rev), turn=_f(turn), sit="%s, %s, %s" % (_f(sx), _f(sy), _f(sz)), anim=anim,
-        vtype="VEHICLE_TYPE_" + kind.upper(), tune="\n".join(lines), verb="Drive" if kind == "car" else "Sail",
+        kind=kind, sit="%s, %s, %s" % (_f(sx), _f(sy), _f(sz)), anim=anim, header=k["header"],
+        consts=k["consts"].format(fwd=_f(fwd), rev=_f(rev), turn=_f(turn)), globals=k["globals"], park=k["park"],
+        mask=k["mask"], control=k["control"],
+        vtype="VEHICLE_TYPE_" + kind.upper(), tune="\n".join(lines), verb=k["verb"],
         perms=perms, camera_fn=_CAMERA_FN if camera else "",
         region_camera="            if (p & PERMISSION_CONTROL_CAMERA) camera();\n" if camera else "",
         perm_camera="        if (p & PERMISSION_CONTROL_CAMERA) camera();\n" if camera else "")
@@ -265,6 +406,9 @@ def lint(src):
             found.append((line_of(m.start()), "WARN", "%s is not an LSL constant (not in the checked tables)" % name))
         elif m.group(1) in ("PERMISSION", "CHANGED", "STATUS") and name not in soft:
             found.append((line_of(m.start()), "NOTE", "%s is not in FIRN's table: check it against the wiki" % name))
+    for m in re.finditer(r"[)\]>]\s*\.\s*([xyzs])\b", code):
+        found.append((line_of(m.start()), "WARN", "'.%s' on an expression: LSL reads a member only from a variable, so this will "
+                      "not compile. Put the value in a variable first" % m.group(1)))
     vehicle = "llSetVehicleType" in code
     if "llTakeControls" in code and not re.search(r"\brun_time_permissions\s*\(", code):
         found.append((0, "WARN", "llTakeControls without a run_time_permissions event: take controls there, not on trust"))
@@ -441,7 +585,11 @@ def cmd_lsl(a):
         rec("NOTE", "needs PERMISSION_CONTROL_CAMERA; cleared automatically when the avatar stands; no effect in mouselook")
         return
     if what == "skeleton":
-        print(skeleton(a.type or "car", a.speed, a.reverse, a.turn, a.sit, a.anim or "", not a.no_camera), end="")
+        kind = a.type or "car"
+        print(skeleton(kind, a.speed, a.reverse, a.turn, a.sit, a.anim or "", not a.no_camera), end="")
+        if kind not in COMPILED:
+            sys.stderr.write("%-10s the %s skeleton lints clean but has not been compiled in-world yet: say so when you hand it "
+                             "over, and try it in a sandbox region first\n" % ("NOTE", kind))
         return
     if what == "tune":
         tune(a)
@@ -468,17 +616,17 @@ def cmd_lsl(a):
 
 def register(sub):
     p = command(sub, "sl", "lsl", cmd_lsl,
-                "Second Life vehicles: type defaults, parameters, flags, limits, caveats, a lean script skeleton, and a lint",
+                "Second Life vehicles: type defaults, parameters, flags, limits, caveats, a lean script skeleton for each type, and a lint",
                 ["lsl defaults --type car", "lsl params --find hover", "lsl flags", "lsl limits", "lsl caveats", "lsl controls",
-                 "lsl camera", "lsl skeleton --type car --speed 22 --turn 2.2", "lsl lint vehicle.lsl",
+                 "lsl camera", "lsl skeleton --type car --speed 22 --turn 2.2", "lsl skeleton --type airplane", "lsl lint vehicle.lsl",
                  "lsl tune --top 100 --reach 80 --in 5 --brake-from 100 --brake-m 40 --turn-radius 6 --at 30"])
     p.add_argument("what", choices=["defaults", "params", "flags", "limits", "caveats", "controls", "camera", "skeleton", "lint", "tune"])
     p.add_argument("file", nargs="?", help="lint: the script to read")
-    p.add_argument("--type", help="defaults: sled, car, boat, airplane or balloon; skeleton: car or boat")
+    p.add_argument("--type", help="defaults and skeleton: sled, car, boat, airplane or balloon (skeleton: default car)")
     p.add_argument("--find", help="params: text to look for")
-    p.add_argument("--speed", type=float, default=20.0, help="skeleton: forward speed, m/s (default 20, engine limit about 30)")
-    p.add_argument("--reverse", type=float, default=6.0, help="skeleton: reverse speed, m/s (default 6)")
-    p.add_argument("--turn", type=float, default=2.0, help="skeleton: turn rate, rad/s (default 2)")
+    p.add_argument("--speed", type=float, help="skeleton: forward speed, m/s (car and boat 20, airplane 25, balloon 4; engine limit about 30)")
+    p.add_argument("--reverse", type=float, help="skeleton: reverse speed, m/s (car and boat 6, balloon 2)")
+    p.add_argument("--turn", type=float, help="skeleton: turn rate, rad/s; an airplane's roll rate (car, boat and airplane 2, sled 1, balloon 0.5)")
     p.add_argument("--sit", default="0.3,0.0,0.5", help="skeleton: sit target x,y,z in metres (default 0.3,0.0,0.5)")
     p.add_argument("--anim", help="skeleton: driving animation name in the root prim's inventory")
     p.add_argument("--no-camera", action="store_true", help="skeleton: leave the follow camera out")

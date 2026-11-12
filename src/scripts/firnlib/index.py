@@ -84,7 +84,7 @@ ALSO = {
     "playlist": "music songs tracks soundtrack album arrive",
     "listen": "loud volume decibel hearing noise safe ears",
     "cabin": "bass boom resonance speakers subwoofer acoustics",
-    "lsl": "second life script vehicle",
+    "lsl": "second life script vehicle airplane plane balloon sled skeleton lint compile",
     "space": "orbit delta-v rocket warp light lag",
     "session": "how long fatigue duration tired talking conversation",
     "checklist": "list before drive winter packing",
