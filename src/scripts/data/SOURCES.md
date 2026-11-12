@@ -14,6 +14,7 @@ Every table the tools read is in this folder. Nothing is fetched while the tools
 | `references.json` | things of a standard size | the standard or the issuer named beside each entry | written for this skill |
 | in the tools | limits for sound, loads and lifting | NIOSH (85 dB(A), 8 h); Directive 2003/10/EC; ITU-T H.870; EN 12195-1 as the European Commission's cargo securing guidelines quote it; ISO 11228-1 | named where each is printed |
 | in the tools | figures for driver fatigue | the Highway Code (Great Britain), rule 91: the low hours, breaks; Regulation (EC) No 561/2006, article 6: a professional driver's nine hours a day; NIOSH: 17 and 24 hours awake | named where each is printed |
+| in the tools | what g does to the people aboard, for `jump` | StatPearls, "G-LOC" (Whinnery and Forster's 888 episodes: none below 4.7 g, none sooner than 5 s); Indian Journal of Aerospace Medicine, "Ejection in unusual aircraft attitude: a case report" (a current ejection seat gives 12 to 14 g); Stemper and others, "Biomechanical tolerance of whole lumbar spines in straightened posture subjected to axial acceleration", Journal of Orthopaedic Research 36(6) (even odds of injury at 16 g, 95% interval 13 to 19) | named where each is printed |
 | everything else | house rules, checklists, lore, the command index | written for this skill | MIT, with the code |
 
 ## GeoNames

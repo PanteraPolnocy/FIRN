@@ -15,6 +15,7 @@ Events, applied in order:
   smoke=on  smoke=off       the smoke screen: a quarter of a beam gets through it
   temp=-5                   ambient temperature in C (changes how fast Rime re-cools)
   armour=1  armour=0.5      charge a docked armour from the bank: 1 is one armour from empty
+  squall=5.1                a Squall burst (a jump): the km of range the jump tool said it costs; it ends silent running
   km=400  heat=90  charge=300   set by hand: a range cap, a warm start, a recharge the story grants
 """
 import re
@@ -399,6 +400,8 @@ class Ledger:
                               "through. How long it lasts has no figure: the driver rules" if self.smoke else "cleared")
         elif key in ("armour", "armor"):
             self.feed_armour(val)
+        elif key == "squall":
+            self.squall(val)
         elif key in ("temp", "km", "heat", "charge"):
             try:
                 x = float(val)
@@ -417,7 +420,8 @@ class Ledger:
                 self.km = max(0.0, min(self.full_km, self.km + x))
                 self.say("CHARGE", "+%s km granted by the story: range %s km [by hand]" % (trim(x, 1), num(self.km, 1)))
         else:
-            die("unknown ledger event '%s'. Events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= km= heat= charge=" % event)
+            die("unknown ledger event '%s'. Events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= "
+                "km= heat= charge=" % event)
 
     def feed_armour(self, val):
         """Charge a docked armour from the bank. val is how many full charges: 1 is one armour from empty."""
@@ -441,6 +445,25 @@ class Ledger:
         if given < want - 1e-9:
             self.say("", "the bank ran dry: only %s%% of that charge was delivered" % trim(given / want * 100.0, 0))
         self.say("", "how long charging takes has no figure: the driver rules")
+
+    def squall(self, val):
+        """A Squall burst: what the jump tool said it costs comes off the range. It is loud, so silent running ends."""
+        try:
+            km = float(val)
+        except ValueError:
+            die("squall=KM: the km of range the jump tool gave for the burst")
+        if km <= 0:
+            die("squall= takes the cost of the burst in km of range, more than 0 (the jump tool gives it)")
+        if km > self.km + 1e-9:
+            self.say("SQUALL", "REFUSED: the burst needs %s km of range and %s km is left" % (trim(km, 1), num(self.km, 1)))
+            return
+        before = self.km
+        self.km = max(0.0, self.km - km)
+        if self.silent:
+            self.silent = False
+            self.say("SILENT", "ended: a Squall is heard a long way off")
+        self.say("SQUALL", "burst fired at t=%s: -%s km: range %s -> %s km [lore]" % (
+            clock(self.t), trim(km, 1), num(before, 1), num(self.km, 1)))
 
     def summary(self):
         limit = self.cfg["veil_overheat_s"]
@@ -493,7 +516,8 @@ def cmd_lattice(a):
         rec("WARNING", w)
     rec("STATE", led.token())
     if fresh and not a.events:
-        rec("NEXT", "pass that STATE back with --state and add events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour=")
+        rec("NEXT", "pass that STATE back with --state and add events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= "
+                    "armour= squall=")
         rec("HITS", "hit=FACE:heavy|light, then the kind: shot (default), blast, beam or hand, and :surprise if it was not seen coming [maker]")
         per = led.cfg.get("cradle_charge_km")
         rec("RULES", "Veil %s km/min full, %s of that for one face; emitters trip at %d s of heat; Rime re-cools in %d-%d s; "
@@ -510,7 +534,8 @@ def register(sub):
                  "lattice --state F2/... cost=full:120", "lattice --state F2/... drive=12@90 seal wait=5m",
                  "lattice --state F2/... armour=1", "lattice hit=under:heavy:blast wait=20 hit=front:light:beam smoke=on hit=left:heavy:beam"])
     p.add_argument("events", nargs="*",
-                   help="events in order: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= km= heat= charge=")
+                   help="events in order: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= km= heat= "
+                        "charge=")
     p.add_argument("--state", help="the STATE token from the previous turn (omit to start a new ledger)")
     p.add_argument("--km", type=float, help="start or override: range left, km")
     p.add_argument("--heat", type=float, help="start or override: emitter heat, s")

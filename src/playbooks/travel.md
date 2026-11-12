@@ -14,6 +14,7 @@ Routes, trips, connections, clocks, weather, packing. Your programme role in one
 ## Which tool
 
 | The driver says | You run |
+| "Plan the whole trip", or any journey worth more than one line | `brief home PLACE --depart ...`, with the forecast figures and the car's consumption if you have them |
 |---|---|
 | "How long to work?" | `route home work --depart 07:30` |
 | "When must I leave to be there by 04:40?" | `route home ktw --arrive "2026-11-12 04:40"` |
@@ -36,11 +37,20 @@ Routes, trips, connections, clocks, weather, packing. Your programme role in one
 | "What is the weather at the airport?" | find its METAR with search, then `metar "EPKT 101300Z ..."` |
 | "We are driving to another country" | `country PLACE` |
 | "Music for the drive, ending as we arrive" | `playlist ... --route home PLACE` (playbooks/sound.md) |
+| "Where did I leave you?" | `park SPOT` when the car is left; later `park --find` with the STAMP line and where the driver is now |
 | Not sure which tool does it | `tools --find` and a few words for the job |
 
 Places are gazetteer names, airport codes, `home`, `work`, the driver's own places, or `lat,lon`. The gazetteer has every capital, every town of 15,000 people or more (some 33,000 cities and towns in all), and 11,400 airports and airfields by their codes; `places --find TEXT` searches it. If a place is missing, find its coordinates with search and pass them as `lat,lon`; `places --add` prints the line that keeps it.
 
 Names repeat. There is a Cambridge in England, in Ontario and in Massachusetts, and `pau` is a town in France and the code of an airfield in Myanmar. When a name could have meant another place, the tool prints an ALSO line naming the others and their keys. Read it every time: if the driver meant another, run it again with that key, and say which place you used. `"Springfield, Illinois"` or `"San Jose, US"` says which from the start.
+
+## The whole journey at once
+
+- `brief` is one call in place of five: the route with its arrival time, light and glare, the fatigue check, the weather read for the road, the card of the country at the far end, and fuel. It runs those commands as they stand and keeps the lines a briefing needs, so nothing in it is a second opinion.
+- Give it what you have. Forecast figures go in as `--temp`, `--humidity`, `--wind`, `--wet`, `--snow`; with none it says WEATHER not checked, and that line stays in your reply. Consumption goes in as `--l-100` or `--kwh-100`, with `--price` and `--people` to split the cost.
+- The country card appears only when the journey ends in another country than it starts in. It reads the places you named: a road may cross a country you did not name, so name a stop in it or run `country` for it.
+- It is one way and has no calendar file. For the way back, the options it leaves out, or `--ics`, run `route`.
+- `park` is for the other end of the day. When the car is left, run it with the pin from the driver's phone map (`lat,lon`; a town's name is only good to a few kilometres) and keep the STAMP line. `park --find` with that line and where the driver is now gives the distance and the compass bearing back. You have no fix of your own: both points are as given, and the stamp lasts for this conversation unless the driver saves it.
 
 ## The route card
 
@@ -120,6 +130,7 @@ A METAR is an airport's own weather report, published as text every half hour or
 - `--fatigue` on a `trip` checks only the legs somebody drives: the run from `--home`, a leg marked `drive`, the run to `--onward`. It reads them on the body clock, the zone the trip started in, because that is the clock the driver's body is still keeping after a flight. AWAKE appears when a drive ends seventeen hours or more after setting off; a wait of seven hours or more between legs is taken as a chance to sleep, and the count starts again there.
 - Each of those lines names its source: the Highway Code's rule 91 for the low hours and the breaks, the EU's limit for professional drivers for the nine hours, NIOSH for the hours awake. They are published benchmarks, not rules that bind a private driver, and not a reading of the driver: the tool knows the clock, not how anyone slept. Say so if it matters. `--low-hours 22:30-05:00` moves the window for someone who keeps other hours, and the line then says the hours are theirs.
 - Run it without being asked when a drive leaves or arrives between midnight and 06:00, or follows a long flight. Report what it found in one line, offer the way round it, then respect the answer: one warning, as with any fatigue note.
+- `brief` runs the check on every drive that has a time. When it has something to say it prints an OFFER line: the fatigue lines are there unasked. Tell the driver so in your own voice, and give them the way out in the same breath: "I have put the fatigue check in without being asked. If you feel indestructible tonight, say so and I leave it out." A yes means `--no-fatigue`, and you do not raise it again on that trip.
 - Food stops fit the driver's diet (SKILL.md section 7). If you do not know it, ask once.
 - If `boot` says it is late at home, or `session --since` says the conversation has run long, say so once, like a fatigue warning, then respect the answer.
 

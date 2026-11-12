@@ -37,7 +37,7 @@ os.environ["FIRN_OUTPUTS"] = OUTPUTS
 
 import firn  # noqa: E402
 import firnlib  # noqa: E402
-from firnlib import (agenda, armour, arms, board, chrono, core, desk, dice, dynamics, fatigue, geo, haul, ical, index,  # noqa: E402
+from firnlib import (agenda, armour, arms, board, chrono, core, desk, dice, dynamics, fatigue, geo, haul, ical, index, jump,  # noqa: E402
                      lattice, metar, rebuild, sensors, service, sky, sl, sound, things, tours)
 
 UTC = timezone.utc
@@ -950,7 +950,7 @@ class LatticeKindsTests(unittest.TestCase):
         fit = ok("record", "--fit")
         self.assertIn("NOT FITTED weapons [maker] - none by default; mission modules only when listed on the brief, and in his hands", fit)
         lore = core.load_data("lore")
-        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 11)
+        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 13)
 
 
 class TriageTests(unittest.TestCase):
@@ -1247,7 +1247,7 @@ class DeskTests(unittest.TestCase):
                      "cabin", "lsl", "space", "boot", "session", "ignition", "sheet", "log", "prompt", "check", "checklist", "selftest",
                      "setup", "rebuild", "tools"):
             self.assertRegex(out, r"(?m)^  %s\s" % name)
-        self.assertIn("77 commands.", out)
+        self.assertIn("80 commands.", out)
         self.assertIn("OBJECTS: WEIGHT, SIZE AND ANALYSIS", out)
         self.assertIn("SOUND", out)
 
@@ -1950,6 +1950,236 @@ class FatigueTests(unittest.TestCase):
     def test_tools_find_names_route(self):
         for question in ("driving tired overnight", "fatigue"):
             self.assertEqual(ok("tools", "--find", *question.split()).splitlines()[1].split()[0], "route", question)
+
+
+class JumpTests(unittest.TestCase):
+    """The Squall: the flight is checked against the textbook, the burst against the house rules in lore.json."""
+
+    def test_flat_jump_known_answer(self):
+        out = ok("jump", "--gap", "20", "--speed", "50", "--load", "260")
+        t = (20 + 4.85) / (50 / 3.6)
+        vy = core.G * t / 2.0
+        self.assertIn("JUMP       20 m gap, landing level, aiming 4.85 m past the far edge | 50 km/h, no ramp", out)
+        self.assertIn("MASS       2,940 kg kerb [maker] + 260 kg aboard = 3,200 kg", out)
+        self.assertIn("FLIGHT     %.2f s in the air, %.1f m up at the top, down 24.9 m on" % (t, vy * vy / (2 * core.G)), out)
+        self.assertIn("the wheels give none, the Squall gives %.1f" % vy, out)
+        self.assertIn("COST       %.1f km of range [lore: 0.18 km for each tonne and each m/s; house rules, 12 November 2026]" % (
+            0.18 * 3.2 * vy), out)
+        self.assertIn("G-LOAD     %.1f g for 0.25 s at the lift; %.1f g at the landing, a fall of 3.9 m, on the suspension, "
+                      "which is built for it [maker]" % (vy / (0.25 * core.G) + 1, vy * vy / (2 * core.G * 0.5) + 1), out)
+        self.assertIn("too brief to black anyone out: that takes about 5 s at 4.7 g or more [StatPearls, G-LOC]", out)
+        self.assertIn("LEDGER     book it in a sim with: lattice --state ... squall=5.1 wait=1.8", out)
+        self.assertNotIn("WARNING", out)
+
+    def test_mass_and_distance_both_cost(self):
+        def cost(*extra):
+            return float(field(ok("jump", "--speed", "60", *extra), "COST").split()[0])
+        light, heavy = cost("--gap", "40"), cost("--gap", "40", "--load", "2940")
+        self.assertAlmostEqual(heavy / light, 2.0, places=1)                # twice the mass, twice the price
+        self.assertGreater(cost("--gap", "40"), cost("--gap", "20"))
+        faster = float(field(ok("jump", "--gap", "40", "--speed", "120"), "COST").split()[0])
+        self.assertLess(faster, light)                                      # more speed, less lift
+
+    def test_ramp_alone_and_ramp_with_speed(self):
+        out = ok("jump", "--gap", "12", "--ramp", "15")
+        v = math.sqrt(core.G * 16.85 / math.sin(math.radians(30)))
+        self.assertIn("| %.0f km/h needed, off a 15 degree ramp" % (v * 3.6), out)
+        self.assertIn("no burst [derived]", out)
+        self.assertNotIn("COST", out)
+        self.assertNotIn("LEDGER", out)
+        out = ok("jump", "--gap", "30", "--speed", "90", "--ramp", "10", "--drop", "4")
+        self.assertIn("landing 4 m lower", out)
+        self.assertIn("m to spare", out)
+        self.assertIn("no burst", out)
+        out = ok("jump", "--gap", "30", "--speed", "60", "--ramp", "10")
+        self.assertIn("the ramp gives 2.9, the Squall gives", out)
+        self.assertIn("no speed under his 250 km/h governor", run("jump", "--gap", "900", "--ramp", "5")[2])
+
+    def test_landing_higher_clears_the_edge(self):
+        out = ok("jump", "--gap", "8", "--speed", "70", "--rise", "2")
+        self.assertIn("landing 2 m higher", out)
+        m = re.search(r"FLIGHT     ([\d.]+) s in the air, ([\d.]+) m up at the top, down ([\d.]+) m on", out)
+        vy = float(re.search(r"the Squall gives ([\d.]+)", out).group(1))
+        vx = 70 / 3.6
+        at_edge = vy * (8 / vx) - 0.5 * core.G * (8 / vx) ** 2
+        self.assertGreaterEqual(at_edge, 2.0 - 0.05)                        # above the far edge when he crosses it
+        self.assertGreaterEqual(float(m.group(3)), 8 + 4.85 - 0.05)
+
+    def test_warnings_follow_the_published_figures(self):
+        out = ok("jump", "--gap", "32", "--speed", "60")
+        self.assertIn("as hard as an ejection seat, 12 to 14 g [Indian Journal of Aerospace Medicine]", out)
+        self.assertIn("warn the driver before the jump, unless there is no time for an answer; then it is his call, life first [maker]", out)
+        self.assertIn("what would ease it: more speed (less lift is needed), a ramp, --catch for the landing", out)
+        out = ok("jump", "--gap", "60", "--speed", "60", "--load", "400")
+        self.assertIn("at 16 g half of lumbar spines are injured (13 to 19) [Stemper et al., J Orthop Res 36(6)]", out)
+        self.assertIn("how much of that it survives has no figure, the driver rules", out)
+        self.assertNotIn("which is built for it", out)
+        out = ok("jump", "--gap", "60", "--speed", "60", "--load", "400", "--catch")
+        self.assertIn("(11.5 to lift, 11.5 to catch the landing)", out)
+        self.assertIn("8.8 g at the landing, a fall of 18.6 m, caught on a second burst", out)
+        self.assertNotIn("WARNING", out)
+        out = ok("jump", "--gap", "60", "--speed", "60", "--unmanned")
+        self.assertIn("nobody aboard: it matters only to what is clamped in the cradle", out)
+        self.assertNotIn("WARNING", out)
+
+    def test_refusals(self):
+        for args in (("--gap", "20"), ("--gap", "0", "--speed", "50"), ("--gap", "20", "--speed", "260"),
+                     ("--gap", "20", "--speed", "50", "--drop", "1", "--rise", "1"), ("--gap", "20", "--speed", "50", "--ramp", "60"),
+                     ("--gap", "20", "--speed", "50", "--load", "-1"), ("--gap", "20", "--speed", "0")):
+            self.assertEqual(run("jump", *args)[0], 2, args)
+        self.assertIn("does not lift it for a stunt", run("jump", "--gap", "20", "--speed", "260")[2])
+
+    def test_ledger_books_a_burst(self):
+        out = ok("lattice", "silent=on", "squall=5.1")
+        self.assertIn("SILENT     ended: a Squall is heard a long way off", out)
+        self.assertIn("SQUALL     burst fired at t=0:00.0: -5.1 km: range 1,500.0 -> 1,494.9 km [lore]", out)
+        self.assertNotIn("| silent", field(out, "LEDGER"))
+        out = ok("lattice", "--km", "3", "squall=5.1")
+        self.assertIn("SQUALL     REFUSED: the burst needs 5.1 km of range and 3.0 km is left", out)
+        self.assertIn("range 3.0 km", field(out, "LEDGER"))
+        for bad in ("squall=x", "squall=0", "squall=-2"):
+            self.assertEqual(run("lattice", bad)[0], 2, bad)
+        state = field(ok("lattice", "squall=5.1"), "STATE")
+        self.assertIn("range 1,494.9 km", field(ok("lattice", "--state", state, "wait=1"), "LEDGER"))
+
+    def test_canon_and_fit_list(self):
+        lore = core.load_data("lore")
+        self.assertEqual(lore["squall"]["label"], "house rules, 12 November 2026")
+        self.assertEqual((lore["squall"]["km_per_tonne_ms"], lore["squall"]["burst_s"], lore["squall"]["landing_stroke_m"]),
+                         (0.18, 0.25, 0.5))
+        self.assertEqual(lore["squall"]["margin_m"], lore["chassis"]["length_m"])
+        fit = ok("record", "--fit")
+        self.assertIn("FITTED     the Squall: ducts under the floor that throw a short burst of air downward [maker]", fit)
+        self.assertIn("UNKNOWN    how soon the Squall can fire again - no figure", fit)
+        self.assertIn("NOT FITTED amphibious or flight gear", fit)           # a leap is not flight
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("The Squall [maker]:", skill)
+        self.assertIn("Driver down. [maker]", skill)
+
+    def test_tools_find_names_jump(self):
+        for question in ("jump over a gap", "clear a blown bridge"):
+            self.assertEqual(ok("tools", "--find", *question.split()).splitlines()[1].split()[0], "jump", question)
+
+
+class BriefTests(unittest.TestCase):
+    """One record for a journey: every line in it is a line the command behind it printed."""
+
+    FULL = ("brief", "krakow", "prague", "--depart", "2026-12-05 09:00", "--temp", "-1", "--humidity", "95", "--wind", "30",
+            "--l-100", "6.5", "--price", "6.89")
+
+    def test_it_says_what_the_commands_say(self):
+        out = ok(*self.FULL)
+        route = ok("route", "krakow", "prague", "--depart", "2026-12-05 09:00", "--fatigue")
+        self.assertEqual(out.splitlines()[0], "BRIEF      Krak\u00f3w -> Prague [car; one way]")
+        for key in ("ROAD", "DRIVE", "BREAKS", "TOTAL", "DEPART", "ARRIVE", "LIGHT", "FATIGUE", "LIVE MAP"):
+            self.assertEqual(field(out, key), field(route, key), key)
+        km = float(re.search(r"~([\d,]+) km", field(route, "ROAD")).group(1).replace(",", ""))
+        fuel = ok("fuel", "--distance", km, "--l-100", "6.5", "--price", "6.89")
+        self.assertAlmostEqual(float(field(out, "FUEL").split()[0]), float(field(fuel, "FUEL").split()[0]), delta=0.1)
+        weather = ok("weather", "--temp", "-1", "--humidity", "95", "--wind", "30")
+        self.assertEqual(field(out, "WEATHER"), field(weather, "AIR"))
+        self.assertIn("SURFACE    freezing surface, dry for now: any damp patch is ice", out)
+        self.assertIn("STOP       from 80 km/h on", out)
+        self.assertEqual(field(out, "COUNTRY"), field(ok("country", "CZ", "--from", "PL"), "COUNTRY"))
+        self.assertIn("EMERGENCY  112", out)
+        for dropped in ("LEG 1", "STRAIGHT", "BUFFER", "DEW POINT", "DIAL", "CLOCKS", "TRIP "):
+            self.assertNotIn("\n" + dropped, out)
+        self.assertLess(len(out), len(route) + len(weather) + len(fuel) + len(ok("country", "CZ", "--from", "PL")))
+
+    def test_fatigue_goes_in_unasked_and_says_so(self):
+        out = ok("brief", "krakow", "gdansk", "--depart", "2026-12-05 21:00")
+        self.assertIn("FATIGUE    6h00m of this 9h11m journey falls in the low hours", out)
+        self.assertIn("LOW HOURS  00:00-06:00 Sun", out)
+        offer = field(out, "OFFER")
+        self.assertIn("the fatigue lines are here unasked, because this drive runs into the low hours", offer)
+        self.assertIn("a word from them leaves the lines out (--no-fatigue)", offer)
+        self.assertLess(out.index("OFFER"), out.index("LIVE MAP"))
+        out = ok("brief", "krakow", "gdansk", "--depart", "2026-12-05 21:00", "--no-fatigue")
+        for gone in ("FATIGUE", "LOW HOURS", "OFFER"):
+            self.assertNotIn(gone, out)
+        out = ok(*self.FULL)                                                # a clear check says so in one line and offers nothing
+        self.assertIn("FATIGUE    clear of the low hours", out)
+        self.assertNotIn("OFFER", out)
+        out = ok("brief", "krakow", "prague", "--depart", "2026-12-05 06:00", "--speed", "45")
+        self.assertIn("AT WHEEL", out)                                      # long, but clear of the low hours: still offered
+        self.assertIn("because this drive is long or short of breaks", field(out, "OFFER"))
+        out = ok("brief", "krakow", "gdansk", "--depart", "2026-12-05 21:00", "--low-hours", "01:00-05:00")
+        self.assertIn("LOW HOURS  01:00-05:00 Sun", out)
+
+    def test_what_is_not_given_is_not_checked(self):
+        out = ok("brief", "warsaw", "krakow", "--firn")
+        self.assertIn("TIME       none given: no arrival time, light or fatigue check", out)
+        self.assertIn("WEATHER    not checked: no forecast figures given", out)
+        self.assertIn("RANGE      318 km of 1,500 km [lore]", out)
+        for absent in ("FATIGUE", "COUNTRY", "FUEL", "ARRIVE"):
+            self.assertNotIn(absent, out)
+        out = ok("brief", "krakow", "vienna", "48.2,16.37", "--mode", "rail", "--depart", "2026-12-05 09:00")
+        self.assertIn("BRIEF      Krak\u00f3w -> 48.2,16.37 via Vienna [rail; one way]", out)
+        self.assertIn("COUNTRY    not checked: 48.2,16.37 has no country on file", out)
+        self.assertNotIn("FATIGUE", out)                                    # nobody drives a train they ride
+        self.assertNotIn("STOP", ok("brief", "krakow", "vienna", "--mode", "rail", "--temp", "2", "--wet"))
+        out = ok("brief", "krakow", "vienna", "bratislava", "--depart", "2026-12-05 09:00")
+        self.assertIn("COUNTRY    Slovakia (SK)", out)
+        self.assertIn("TRANSIT    also named on the way: AT", out)
+
+    def test_window_and_refusals(self):
+        out = ok("brief", "krakow", "gdansk", "--window", "05:00-11:00", "--date", "2026-12-05", "--before-dark", "--temp", "2", "--wet")
+        self.assertIn("BEST       depart 06:00, arrive 15:11", out)
+        self.assertIn("low hours 0h00m", out)
+        self.assertIn("STOP       from 80 km/h on wet", out)
+        for args in (("krakow",), ("krakow", "gdansk", "--wind", "30"), ("krakow", "gdansk", "--wet"),
+                     ("krakow", "gdansk", "--l-100", "6", "--kwh-100", "18"), ("krakow", "gdansk", "--low-hours", "01:00-05:00"),
+                     ("krakow", "gdansk", "--depart", "2026-12-05 21:00", "--no-fatigue", "--low-hours", "01:00-05:00"),
+                     ("krakow", "nowhere-at-all")):
+            self.assertEqual(run("brief", *args)[0], 2, args)
+        self.assertEqual(run("brief", "krakow", "gdansk", "--wind", "30")[1], "")       # an error prints no half record
+
+    def test_it_leaves_the_toolkit_as_it_found_it(self):
+        ok(*self.FULL)
+        self.assertIn("80 commands.", ok("tools"))
+        self.assertEqual(ok("tools", "--find", "plan", "the", "whole", "journey").splitlines()[1].split()[0], "brief")
+
+
+class ParkTests(unittest.TestCase):
+    def test_stamp_and_way_back(self):
+        out = ok("park", "50.26453,19.02372", "--note", "level 2, row C")
+        self.assertIn("PARKED     50.2645,19.0237 (level 2, row C) at 2026-11-10 14:30 Tue UTC+01:00", out)
+        stamp = field(out, "STAMP")
+        self.assertEqual(stamp, "park --find --spot 50.26453,19.02372 --at 2026-11-10T13:30Z --from WHERE-YOU-ARE")
+        self.assertIn("it lasts for this conversation unless", out)
+        back = ok(*shlex.split(stamp.replace("WHERE-YOU-ARE", "50.25990,19.02160")))
+        km = geo.haversine_km(50.2599, 19.0216, 50.26453, 19.02372)
+        brg = geo.bearing_deg(50.2599, 19.0216, 50.26453, 19.02372)
+        self.assertIn("CAR        %d m away, bearing %03.0f %s from 50.2599,19.0216 [derived, straight line]" % (
+            round(km * 1000), brg, geo.compass(brg)), back)
+        self.assertIn("WALK       about 0h07m at 4.8 km/h if the way is straight [estimate]", back)
+        self.assertIn("PARKED     0h00m ago", back)
+        self.assertIn("NOTE       he has no fix on", back)
+        self.assertIn("PARKED     1h20m ago", ok("park", "--find", "--spot", "50.26453,19.02372", "--from", "50.2599,19.0216",
+                                                 "--at", "2026-11-10T12:10Z"))
+
+    def test_near_far_and_named_places(self):
+        out = ok("park", "--find", "--spot", "50.26453,19.02372", "--from", "50.26455,19.02370")
+        self.assertIn("within about 15 m of", out)
+        self.assertNotIn("WALK", out)
+        out = ok("park", "--find", "--spot", "50.26453,19.02372", "--from", "krakow")
+        self.assertIn("km away, bearing", out)
+        self.assertIn("CHECK      that is far for a car park", out)
+        out = ok("park", "katowice")
+        self.assertIn("a named town is good to a few kilometres", out)
+        self.assertNotIn("a named town", ok("park", "50.26453,19.02372"))
+
+    def test_refusals(self):
+        for args in ((), ("--find",), ("--find", "--spot", "50.2,19.0"), ("--find", "--from", "50.2,19.0"),
+                     ("50.2,19.0", "--spot", "50.2,19.0"), ("50.2,19.0", "--find", "--spot", "50.2,19.0", "--from", "50.2,19.0"),
+                     ("--find", "--spot", "50.2,19.0", "--from", "50.2,19.0", "--at", "yesterday"),
+                     ("--find", "--spot", "50.2,19.0", "--from", "50.2,19.0", "--at", "2026-11-11T09:00Z")):
+            self.assertEqual(run("park", *args)[0], 2, args)
+
+    def test_tools_find_names_park(self):
+        for question in ("where did I leave the car", "find my parked car"):
+            self.assertEqual(ok("tools", "--find", *question.split()).splitlines()[1].split()[0], "park", question)
 
 
 class MetarTests(unittest.TestCase):
@@ -2956,6 +3186,13 @@ class PublishedFiguresTests(unittest.TestCase):
         self.assertEqual((fatigue.AWAKE_H, fatigue.AWAKE_LONG_H), (17.0, 24.0))
         self.assertEqual(fatigue.REST_H, 7.0)                       # a house rule, not a published figure
         self.assertEqual(fatigue.DRIVEN, ("car", "motorway", "city"))
+
+    def test_g_figures(self):
+        """Read from their sources on 12 November 2026: StatPearls on G-LOC; the Indian Journal of Aerospace Medicine on a
+        current ejection seat; Stemper and others, Journal of Orthopaedic Research 36(6), on the lumbar spine."""
+        self.assertEqual((jump.LOC_G, jump.LOC_S), (4.7, 5.0))
+        self.assertEqual(jump.SEAT_G, (12.0, 14.0))
+        self.assertEqual(jump.SPINE_G, (16.0, 13.0, 19.0))
 
     def test_reference_sizes(self):
         refs = core.load_data("references")["references"]

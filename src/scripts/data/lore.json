@@ -61,6 +61,14 @@
     "veil_cool_ratio": "maker", "cell_air_min": "maker", "cradle_cores": "maker",
     "cradle_passengers": "maker", "cradle_charge_km": "maker"
   },
+  "squall": {
+    "note": "The Squall, for the jump tool. The maker ruled that a burst of air lifts him, that it costs power, more for more mass and more distance, and that the suspension is built for the landing. The four figures here are house rules until she gives her own: a brief may set its own.",
+    "label": "house rules, 12 November 2026",
+    "km_per_tonne_ms": 0.18,
+    "burst_s": 0.25,
+    "landing_stroke_m": 0.5,
+    "margin_m": 4.85
+  },
   "assumptions": [
     "Rime re-cool: section 3 says the frost melts back over a minute or two and re-cools faster in winter. That is 60 s at 0 C or colder, 120 s at +20 C or warmer, a straight line between. [maker]",
     "Veil heat: a partial Veil heats the emitters at a quarter of the full rate, matching its quarter cost, so one face can be held for 12 minutes. [maker]",
@@ -75,7 +83,10 @@
     "His own Veil does not dim his sensors. His own smoke blinds his cameras, thermal imager and lidar as it blinds everyone's; radar and microphones still work in it. [maker]",
     "Walls: cameras and lidar stop at any wall. Thermal and radar read through a light wall or a vehicle's skin at a quarter strength, at short range only. Nothing of his reads through a solid wall but sound and radio. [maker]",
     "People: his sensors tell him that someone is there, how many, what they are doing and carrying, whether they move and breathe, warm or cooling, hurt or not; and who they are, if he has met them or has them on file. [maker]",
-    "Sample port: one sample at a time, about a minute for a result. It says what the sample is made of and whether it is flammable, corrosive or toxic. It cannot say where a thing came from or who handled it. [maker]"
+    "Sample port: one sample at a time, about a minute for a result. It says what the sample is made of and whether it is flammable, corrosive or toxic. It cannot say where a thing came from or who handled it. [maker]",
+    "The Squall: the wheels alone do not push him upwards. A burst of air does, and it costs power: the heavier he is and the farther the jump, the more. The suspension is built for the landing. [maker]",
+    "A jump has no limit on g short of what would injure, knock out or kill someone aboard. Above that he warns the driver first, unless there is no time for an answer. [maker]",
+    "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push if the bank holds the 400 kWh that perf --firn derives; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [house rules, 12 November 2026]"
   ],
   "fit": {
     "note": "What is on the vehicle. In a sim, kit that is not listed here does not exist until the driver keeps it (SKILL.md section 12). Kit that was improvised once and is waiting for a decision lives under \"pending\" in personal.json.",
@@ -98,6 +109,7 @@
       ["speed governor at 250 km/h", "maker", "his own, not lifted for fun"],
       ["thin cool-blue light bar, front and tail", "maker", "his face, his voice light and the Veil emitter"],
       ["grapple", "maker", "named by the maker among his systems; it cannot hold a powered armour"],
+      ["the Squall: ducts under the floor that throw a short burst of air downward", "maker", "lifts him over a gap, at a cost in range that grows with his mass and the distance (the jump tool); loud, so it ends silent running; a leap, not flight: no steering once the wheels leave the ground"],
       ["steering wheel and pedals", "sheet", "the driver may take the wheel whenever they like; no other mind drives him unless he hands over because he is damaged [maker]"]
     ],
     "not_fitted": [
@@ -112,7 +124,9 @@
       ["how long charging a docked armour takes", "no figure"],
       ["smoke screen capacity", "no figure"],
       ["what a signature spike costs, and how long it holds a lock", "no figure"],
-      ["how far each sensor reaches, to the metre", "house rules in sensors.json until the maker gives figures: a brief may set its own"]
+      ["how far each sensor reaches, to the metre", "house rules in sensors.json until the maker gives figures: a brief may set its own"],
+      ["what a Squall burst costs to the kilometre, how long it lasts, and how far the suspension gives on landing", "house rules in lore.json until the maker gives figures: a brief may set its own"],
+      ["how soon the Squall can fire again", "no figure"]
     ]
   },
   "bar": {

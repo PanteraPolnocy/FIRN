@@ -1,5 +1,7 @@
-"""Logistics: getting several people to one place at one time, checklists, and reading the weather for the road."""
+"""Logistics: getting several people to one place at one time, checklists, reading the weather for the road, and the way
+back to where the car was left."""
 import math
+from datetime import datetime
 
 from . import chrono, geo, ical
 from .core import command, die, driver, fmt_hm, load_data, more, num, rec, trim
@@ -163,7 +165,65 @@ def cmd_weather(a):
     rec("SOURCE", "the figures are %s's or a forecast's, not sensor readings; name the forecast and its time when passing this on" % driver())
 
 
+# ---- where the car was left
+
+_STAMP = "%Y-%m-%dT%H:%MZ"
+
+
+def _metres(km):
+    return "%s m" % num(round(km * 1000.0)) if km < 1 else "%s km" % trim(km, 2)
+
+
+def cmd_park(a):
+    if a.find:
+        if a.place or not a.spot or not a.frm:
+            die("park --find needs --spot (it is on the STAMP line) and --from, where you are now")
+        spot, here = geo.parse_point(a.spot), geo.parse_point(a.frm)
+        km = geo.haversine_km(here[1], here[2], spot[1], spot[2])
+        brg = geo.bearing_deg(here[1], here[2], spot[1], spot[2])
+        if km * 1000.0 < 15:
+            rec("CAR", "within about 15 m of %s: you are standing next to him [derived]" % here[0])
+        else:
+            rec("CAR", "%s away, bearing %03.0f %s from %s [derived, straight line]" % (_metres(km), brg, geo.compass(brg), here[0]))
+            rec("WALK", "about %s at %s km/h if the way is straight [estimate]" % (
+                fmt_hm(km / geo.MODES["walk"][0]), trim(geo.MODES["walk"][0], 1)))
+        if a.at:
+            try:
+                then = datetime.strptime(a.at, _STAMP).replace(tzinfo=chrono.UTC)
+            except ValueError:
+                die("--at is the time from the STAMP line, like 2026-11-10T13:30Z")
+            ago = (chrono.now_in(chrono.UTC) - then).total_seconds() / 3600.0
+            if ago < 0:
+                die("--at is in the future: copy it from the STAMP line as it stands")
+            rec("PARKED", "%s ago" % fmt_hm(ago))
+        if km > 3:
+            rec("CHECK", "that is far for a car park: is the spot right, and is 'from' where you are?")
+        rec("NOTE", "he has no fix on %s's position: both points are as given" % driver())
+        return
+    if not a.place or a.spot or a.frm or a.at:
+        die("park SPOT when you leave the car; later, park --find --spot ... --from WHERE-YOU-ARE")
+    spot = geo.parse_point(a.place)
+    now = chrono.now_in(geo.place_tz(spot))
+    rec("PARKED", "%s%s at %s" % (spot[0], " (%s)" % a.note if a.note else "", chrono.fmt_dt(now)))
+    rec("STAMP", "park --find --spot %s,%s --at %s --from WHERE-YOU-ARE" % (
+        trim(spot[1], 6), trim(spot[2], 6), chrono.to_utc(now).strftime(_STAMP)))
+    more("keep that line: it is all that remembers the spot, and it lasts for this conversation unless %s saves it" % driver())
+    if spot[3] is not None and spot[3].get("kind") not in ("home", "work", "poi"):
+        more("a named town is good to a few kilometres: for a car park, give the pin from a phone map as lat,lon")
+
+
 def register(sub):
+    p = command(sub, "ground", "park", cmd_park,
+                "where the car was left: stamp the spot, and later the distance and compass bearing back to it",
+                ["park 50.26453,19.02372 --note \"level 2, row C\"",
+                 "park --find --spot 50.26453,19.02372 --from 50.25990,19.02160 --at 2026-11-10T12:10Z"])
+    p.add_argument("place", nargs="?", help="where the car is: lat,lon from a phone map, or a place")
+    p.add_argument("--note", help="anything worth keeping with it: the level, the row, the street")
+    p.add_argument("--find", action="store_true", help="the way back: needs --spot and --from")
+    p.add_argument("--spot", help="with --find: the car's spot, from the STAMP line")
+    p.add_argument("--from", dest="frm", help="with --find: where you are now, lat,lon or a place")
+    p.add_argument("--at", help="with --find: when the car was parked, from the STAMP line")
+
     p = command(sub, "ground", "convoy", cmd_convoy,
                 "several people, one place, one time: when each must leave to arrive together, and a calendar file",
                 ['convoy anna:krakow bob:warsaw --to katowice --arrive "2026-12-20 18:00"',

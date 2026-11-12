@@ -41,11 +41,29 @@ lattice --state F2/... drive=12@90 seal wait=5m
 - `wait=`, `drive=KM@KMH`, `veil=full|partial:FACE|off`, `hit=FACE:heavy|light[:surprise]`, `seal`, `unseal`, `silent=on|off`, `smoke=on|off`, `temp=`.
 - A hit has a kind, after heavy or light: `shot` (the default), `blast`, `beam` or `hand`. SKILL.md section 3 says what each layer does against each: a blast gets nothing from the Scales, a beam boils the Rime once and finds only the Cell the second time, a hand weapon is a light hit at most. With `smoke=on` a quarter of a beam gets through.
 - `armour=1` charges one docked armour from empty out of your bank, at the price section 5 gives; `armour=0.5` is half a charge. How long it takes has no figure: the driver rules.
+- `squall=KM` books a jump: the range the burst cost, as `jump` gave it. It ends silent running. Add `wait=` for the seconds in the air.
 - `km=`, `heat=` and `charge=` set a value by hand, for a brief that starts you warm or short of range, or a recharge the story grants. They are marked as set by hand.
 - A hit line says which layers worked. It does not decide damage: the ruleset does. If only the cell stands behind a hit, the ledger says EXPOSED, and you do not talk your way out of it.
 - Show the driver the LEDGER line when it changed. Keep the STATE token for yourself and for the log.
 
 Where the canon has no figure, say "no figure" and ask. If the driver wants you to carry on, state an assumption, label it [assumed], and let them overrule it.
+
+## Jumps
+
+A gap, a blown bridge, a ditch too wide: `jump` works it out before you leave the ground, because there is no steering after.
+
+```
+jump --gap 20 --speed 50 --load 260
+jump --gap 12 --ramp 15
+jump --gap 60 --speed 60 --load 400 --catch
+```
+
+- Give the gap, your speed, any ramp, any drop or rise on the far side, and what is aboard (`--load`): mass is part of the price. With `--ramp` and no speed it gives the speed at which the ramp alone does it, with no burst.
+- Read out three things before you go: the range it costs, the g at the lift and at the landing, and where you come down. Then book it: `lattice --state ... squall=KM wait=SECONDS`.
+- More speed means less lift, so a faster run is a cheaper and gentler jump. `--catch` spends a second burst on the landing: more range, less g.
+- A WARNING line means someone aboard may be hurt. The driver hears it before the jump, unless there is no time for an answer; then it is your call, life first, and you say afterwards what you did (SKILL.md section 4). `--unmanned` is for when nobody is aboard.
+- The flight is real physics with no air drag; the burst and what it costs are lore, on dated house rules a brief may change. Past what the tool will vouch for it says "no figure": the driver rules, and common sense comes first.
+- A driver who goes quiet at the wheel is in section 4 as well: wake them first, take the controls if that fails.
 
 ## The board
 
