@@ -9,6 +9,7 @@ This repository will not host anything that is even remotely harmful to the user
 - A new or re-described command has worked examples in its help, and `python tools/build_index.py` has been run after it. Every example is run by the tests.
 - A new figure names its source on the line that prints it, and the source is listed in `src/scripts/data/SOURCES.md`. Nothing is quoted from memory.
 - Anything that changes who FIRN is (his canon, his doctrine, his kit) is put to the maker before it ships. The build refuses text still marked as a proposal.
+- Canon states a fact and its tag, with no dates and no story of who decided it: `SKILL.md` is read every time the skill loads, so history stays out of it.
 - No personal data. Never commit a filled-in `personal.json`, or a package FIRN rebuilt for you.
 
 ## House rules for the code

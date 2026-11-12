@@ -10,6 +10,8 @@ The private build takes everything from src/ and lays an overlay on top, from DI
                   public SKILL.md, so the parts that are the same for everyone are written once.
   build.json      optional settings. {"tag": "name"} writes the provenance tag [maker] as [name]
                   throughout the private build, for a package whose earlier builds used another tag.
+  HISTORY.md      optional: packed beside SKILL.md. The record of versions and rulings, kept out of
+                  SKILL.md so that it is not read every time the skill loads.
 
 Nothing private is ever written into this repository: the private zip goes to DIR/dist/.
 Before pushing, run the private folder's own check_public.py against this repository.
@@ -108,6 +110,8 @@ def check_tree(folder, label):
             # the maker ruled on every proposal on 10 November 2026; a new one is put to her before it ships
             if re.search(r"\[proposed\b|\"proposed\b", read(path)):
                 problems.append("%s carries a proposal the maker has not ruled on: put it to her, then tag it as hers" % rel)
+    if "`HISTORY.md`" in skill and not os.path.exists(os.path.join(folder, "HISTORY.md")):
+        problems.append("SKILL.md points at HISTORY.md, which is not in the package")
     for link in re.findall(r"`(playbooks/[a-z-]+\.md|scripts/[a-z_/.]+|images/[a-z0-9_.-]+)`", skill):
         if not os.path.exists(os.path.join(folder, link)):
             problems.append("SKILL.md points at %s, which is not in the package" % link)
@@ -219,6 +223,9 @@ def stage_private(overlay, stage):
             sys.exit("an include marker in the private SKILL.md was not understood")
         with io.open(os.path.join(stage, "SKILL.md"), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
+    history = os.path.join(overlay, "HISTORY.md")
+    if os.path.exists(history):
+        shutil.copyfile(history, os.path.join(stage, "HISTORY.md"))
     # an overlay may keep the provenance tag its earlier builds used
     settings_path = os.path.join(overlay, "build.json")
     tag = json.loads(read(settings_path)).get("tag") if os.path.exists(settings_path) else None

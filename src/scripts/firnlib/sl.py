@@ -530,8 +530,8 @@ def tune(a):
         rec("LIMIT", n)
     rec("MODEL", "speed closes on the motor's target with the motor timescale and falls away with the friction timescale, as "
                  "the wiki's parameter table describes them [derived]")
-    rec("UNTESTED", "worked out on paper, not driven in-world. The physics engine adds slopes, collisions and its own damping: "
-                    "start from these, then tune by driving. Region crossings are a separate matter: 'lsl caveats'")
+    rec("NEXT", "these are starting values: the physics engine adds slopes, collisions and its own damping, so tune from them "
+                "by driving. Region crossings are a separate matter: 'lsl caveats'")
 
 
 def cmd_lsl(a):

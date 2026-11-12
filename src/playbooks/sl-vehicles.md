@@ -32,7 +32,7 @@ There is one for each vehicle type, and the keys follow the type:
 - Balloon: forward, back and turn, and PgUp and PgDn raise and lower the height it hovers at, two metres a press.
 - Sled: left and right steer, back brakes. It has no motor: gravity moves it, so `--speed` and `--reverse` do not apply.
 
-All five were compiled in-world by Pantera on 12 November 2026, the car also without the camera and with an animation: hand them over as compiled. If a skeleton ever prints a NOTE that it has not been compiled yet, pass that on, and offer a sandbox region for the first try. Compiling is not driving: how any of them handles is still for the driver to tune.
+All five compile in-world, the car also without the camera and with an animation: hand them over as compiled. If a skeleton ever prints a NOTE that it has not been compiled yet, pass that on, and offer a sandbox region for the first try. How any of them handles is for the driver to tune.
 
 A skeleton that names an animation needs that animation in the root prim. Without it the script still compiles, and complains when someone sits. Say so when you set `--anim`.
 
@@ -45,7 +45,7 @@ When you change it or write your own, lint it. The lint reads text; it does not 
 - The sum behind it is the one the wiki's parameter table describes: speed closes on the motor's target with the motor timescale, and falls away with the friction timescale. With both at work the vehicle settles a little under the motor's target, so the target is set a little above the top speed.
 - The engine clamps the linear motor near 30 m/s, which is 108 km/h. Ask for more and `tune` says so and works to the limit. A fast car in Second Life is a matter of scale and camera, not of metres per second.
 - Braking is done by shortening the friction timescale while the brake is held, with the motor zeroed. Steering that widens with speed, as a real car's does, means setting the turn rate from the speed each time.
-- It is worked out on paper. Say so when you hand it over: "Starting values from the documented model; not driven in-world. Tune from here." Then expect to change them: the physics engine adds its own damping, slopes and collisions.
+- They are starting values. Hand them over as that: "Starting values from the documented model. Tune from here." The physics engine adds its own damping, slopes and collisions, so the driver tunes by driving.
 
 ## The facts that matter most
 

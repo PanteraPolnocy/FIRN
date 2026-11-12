@@ -21,7 +21,7 @@ Ducts under the floor that throw a short, hard burst of air downward. [maker]
 - It is loud. A Squall ends silent running, and anything with ears knows where you are.
 - It is a leap, not flight: seconds in the air, and no steering once the wheels leave the ground. You land where the physics puts you, so you work it out before, not during.
 - The suspension is built for the landing. The people aboard are another matter, so you say the g before you jump. There is no limit short of what would injure, knock out or kill someone aboard; above that you warn the driver first, unless there is no time for an answer, and then it is your call, life first (section 4).
-- What a burst costs to the kilometre, how long it lasts and how far the suspension gives have no figures from Pantera yet: `jump` uses dated house rules, and a brief may set its own. A second burst can catch a hard landing (`--catch`): more range, less g.
+- A burst costs 0.18 km of range for each tonne and each m/s of lift, and lasts a quarter of a second; the suspension gives half a metre on landing; you aim your own length past the far edge. [maker] A brief may set its own. A second burst can catch a hard landing (`--catch`): more range, less g. How soon the Squall can fire again has no figure.
 - The Squall belongs to simulations, like your senses. The flight itself is plain projectile physics, and that part is true anywhere.
 - `jump` works a leap out before you take it (playbooks/sims.md, "Jumps").
 

@@ -950,7 +950,7 @@ class LatticeKindsTests(unittest.TestCase):
         fit = ok("record", "--fit")
         self.assertIn("NOT FITTED weapons [maker] - none by default; mission modules only when listed on the brief, and in his hands", fit)
         lore = core.load_data("lore")
-        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 17)
+        self.assertEqual(sum(1 for line in lore["assumptions"] if "[maker]" in line), 18)
 
 
 class TriageTests(unittest.TestCase):
@@ -998,6 +998,19 @@ class VehicleTests(unittest.TestCase):
         self.assertNotIn("[maker][derived]", skill)
         self.assertIn("Your bank holds about 400 kWh", skill)
         self.assertIn("derived (calculated)", skill)                # the confidence tag for a number stays
+
+    def test_the_core_carries_no_history(self):
+        """SKILL.md is read every time the skill loads: a fact and its tag, no dates and no story of who ruled what.
+        The two dates it keeps are his first boot and the example of a log line."""
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        dated = [line for line in skill.splitlines() if re.search(r"\b\d{1,2} \w+ 20\d\d\b|\b20\d\d-\d\d-\d\d\b", line)]
+        self.assertEqual(len(dated), 2, dated)
+        self.assertTrue(dated[0].startswith("- First boot:"), dated[0])
+        self.assertTrue(dated[1].startswith("`LOG "), dated[1])
+        lore = core.load_data("lore")
+        for text in [lore["squall"]["note"]] + lore["assumptions"]:
+            self.assertNotRegex(text, r"\b\d{1,2} \w+ 20\d\d\b")
         t = float(field(ok("perf", "--kw", "283", "--kg", "1580", "--drive", "rwd", "--front-pct", "38", "--cd", "0.29", "--area", "2.0"), "0-100").split()[0])
         self.assertTrue(3.6 <= t <= 4.6, t)
         t = float(field(ok("perf", "--hp", "110", "--kg", "1300", "--drive", "fwd"), "0-100").split()[0])
@@ -2059,7 +2072,7 @@ class FatigueTests(unittest.TestCase):
 
 
 class JumpTests(unittest.TestCase):
-    """The Squall: the flight is checked against the textbook, the burst against the house rules in lore.json."""
+    """The Squall: the flight is checked against the textbook, the burst against the maker's figures in lore.json."""
 
     def test_flat_jump_known_answer(self):
         out = ok("jump", "--gap", "20", "--speed", "50", "--load", "260")
@@ -2069,7 +2082,7 @@ class JumpTests(unittest.TestCase):
         self.assertIn("MASS       2,940 kg kerb [maker] + 260 kg aboard = 3,200 kg", out)
         self.assertIn("FLIGHT     %.2f s in the air, %.1f m up at the top, down 24.9 m on" % (t, vy * vy / (2 * core.G)), out)
         self.assertIn("the wheels give none, the Squall gives %.1f" % vy, out)
-        self.assertIn("COST       %.1f km of range [lore: 0.18 km for each tonne and each m/s; house rules, 12 November 2026]" % (
+        self.assertIn("COST       %.1f km of range [lore: 0.18 km for each tonne and each m/s]" % (
             0.18 * 3.2 * vy), out)
         self.assertIn("G-LOAD     %.1f g for 0.25 s at the lift; %.1f g at the landing, a fall of 3.9 m, on the suspension, "
                       "which is built for it [maker]" % (vy / (0.25 * core.G) + 1, vy * vy / (2 * core.G * 0.5) + 1), out)
@@ -2150,7 +2163,8 @@ class JumpTests(unittest.TestCase):
 
     def test_canon_and_fit_list(self):
         lore = core.load_data("lore")
-        self.assertEqual(lore["squall"]["label"], "house rules, 12 November 2026")
+        self.assertEqual(sorted(lore["squall"]), ["burst_s", "km_per_tonne_ms", "landing_stroke_m", "margin_m", "note"])
+        self.assertNotIn("house rule", json.dumps(lore["squall"]) + " ".join(lore["assumptions"]))
         self.assertEqual((lore["squall"]["km_per_tonne_ms"], lore["squall"]["burst_s"], lore["squall"]["landing_stroke_m"]),
                          (0.18, 0.25, 0.5))
         self.assertEqual(lore["squall"]["margin_m"], lore["chassis"]["length_m"])
@@ -2565,7 +2579,8 @@ class LapsAndTuneTests(unittest.TestCase):
         self.assertIn("VEHICLE_LINEAR_FRICTION_TIMESCALE, <100.0, 2.0, 1000.0>);", out)
         self.assertIn("VEHICLE_LINEAR_FRICTION_TIMESCALE, <1.44, 2.0, 1000.0>);", out)
         self.assertIn("VEHICLE_ANGULAR_MOTOR_DIRECTION, <0.0, 0.0, 1.39>);", out)
-        self.assertIn("UNTESTED", out)
+        self.assertIn("NEXT       these are starting values", out)
+        self.assertNotIn("UNTESTED", out)
         calls = [line.split(";")[0].split("  ")[-1].strip() + ";" for line in out.splitlines() if "llSetVehicle" in line]
         self.assertEqual(len(calls), 5)
         script = ("default\n{\n    state_entry()\n    {\n        llSetVehicleType(VEHICLE_TYPE_CAR);\n        %s\n"
@@ -2690,6 +2705,29 @@ class ReplyCompareCountryTests(unittest.TestCase):
 
 
 class PackageTests(unittest.TestCase):
+
+    def test_private_build_packs_its_history_beside_the_core(self):
+        """An overlay's HISTORY.md ships in the package, so the record is kept without SKILL.md carrying it."""
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        try:
+            import build
+        finally:
+            sys.path.pop(0)
+        with tempfile.TemporaryDirectory() as d:
+            overlay, stage = os.path.join(d, "overlay"), os.path.join(d, "stage")
+            os.makedirs(overlay)
+            shutil.copy(os.path.join(ROOT, "tests", "personal.test.json"), os.path.join(overlay, "personal.json"))
+            with open(os.path.join(overlay, "HISTORY.md"), "w", encoding="utf-8") as f:
+                f.write("# history\n\n- 9.9.9: a line [maker]\n")
+            with open(os.path.join(overlay, "build.json"), "w", encoding="utf-8") as f:
+                f.write('{"tag": "ada"}')
+            with open(os.path.join(overlay, "notes-for-me.md"), "w", encoding="utf-8") as f:
+                f.write("not for the package\n")
+            build.stage_private(overlay, stage)
+            with open(os.path.join(stage, "HISTORY.md"), encoding="utf-8") as f:
+                self.assertIn("- 9.9.9: a line [ada]", f.read())
+            self.assertFalse(os.path.exists(os.path.join(stage, "notes-for-me.md")))
+            self.assertTrue(os.path.exists(os.path.join(stage, "SKILL.md")))
     def test_every_example_in_the_help_runs(self):
         firn.build_parser()
         needs_file = 0

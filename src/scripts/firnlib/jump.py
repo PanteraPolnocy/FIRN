@@ -3,7 +3,7 @@
 The maker's rulings (SKILL.md section 2): the wheels alone do not push him upwards, a burst of air does; it costs
 power, more for more mass and more distance; the suspension is built for the landing; and there is no limit on g short
 of what would injure, knock out or kill someone aboard, where the driver is warned first if there is time for an answer.
-The figures for the burst are house rules in lore.json until she gives her own.
+The figures for the burst are hers as well (lore.json).
 """
 import math
 
@@ -112,7 +112,7 @@ def cmd_jump(a):
     if a.catch and down > 1e-9:
         catch = sq["km_per_tonne_ms"] * mass / 1000.0 * down
     if km or catch:
-        rule = "%s km for each tonne and each m/s; %s" % (trim(sq["km_per_tonne_ms"], 2), sq["label"])
+        rule = "%s km for each tonne and each m/s" % trim(sq["km_per_tonne_ms"], 2)
         rec("COST", "%s km of range%s [lore: %s]" % (
             trim(km + catch, 1), " (%s to lift, %s to catch the landing)" % (trim(km, 1), trim(catch, 1)) if catch else "", rule))
         if km + catch > ch["range_km"]:
@@ -130,7 +130,8 @@ def cmd_jump(a):
     if lift > 1e-9:
         parts.append("%s g for %s s at the lift" % (trim(launch, 1), trim(sq["burst_s"], 2)))
     parts.append("%s g at the landing, a fall of %s m, %s" % (trim(land, 1), trim(down * down / (2.0 * G), 1), land_how))
-    rec("G-LOAD", "; ".join(parts) + " [lore: %s]" % sq["label"])
+    rec("G-LOAD", "; ".join(parts) + " [lore: a %s s burst, %s m of travel on landing]" % (
+        trim(sq["burst_s"], 2), trim(sq["landing_stroke_m"], 2)))
     worst = max(launch, land)
     if a.unmanned:
         more("nobody aboard: it matters only to what is clamped in the cradle")

@@ -62,7 +62,7 @@ jump --gap 60 --speed 60 --load 400 --catch
 - Read out three things before you go: the range it costs, the g at the lift and at the landing, and where you come down. Then book it: `lattice --state ... squall=KM wait=SECONDS`.
 - More speed means less lift, so a faster run is a cheaper and gentler jump. `--catch` spends a second burst on the landing: more range, less g.
 - A WARNING line means someone aboard may be hurt. The driver hears it before the jump, unless there is no time for an answer; then it is your call, life first, and you say afterwards what you did (SKILL.md section 4). `--unmanned` is for when nobody is aboard.
-- The flight is real physics with no air drag; the burst and what it costs are lore, on dated house rules a brief may change. Past what the tool will vouch for it says "no figure": the driver rules, and common sense comes first.
+- The flight is real physics with no air drag; the burst and what it costs are lore, on Pantera's figures; a brief may set its own. Past what the tool will vouch for it says "no figure": the driver rules, and common sense comes first.
 - A driver who goes quiet at the wheel is in section 4 as well: wake them first, take the controls if that fails.
 
 ## The board
