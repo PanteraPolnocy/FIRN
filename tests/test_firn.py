@@ -361,16 +361,14 @@ class GroundTests(unittest.TestCase):
         out = ok("route", "krakow", "jfk")
         self.assertTrue(field(out, "NO ROAD").startswith("leg 1: Krak"))
         self.assertIn(" is on the mainland of Europe, Asia and Africa and John F. Kennedy International Airport (JFK) is in North "
-                      "America. No road joins them, so the crossing is by ship, where a ferry runs at all: the figures for this "
-                      "leg are a straight line and not a journey. Try --mode air.", out)
+                      "America. No road joins them, so this leg is planned by air and the car stays behind.", out)
+        self.assertIn(" | no road: by air, KRK to JFK | ", field(out, "LEG 1"))
         self.assertNotIn("LIVE MAP", out)
         self.assertNotIn("is there a road", out)
         out = ok("route", "waw", "cdg", "jfk", "--mode", "air")
         self.assertNotIn("is there a road", out)
         self.assertNotIn("NO ROAD", out)
-        self.assertIn("km great circle | ~", out)
-        self.assertIn("km flown", out)
-        self.assertNotIn("LIVE MAP", out)
+        self.assertNotIn("PLAN", out)
 
     def test_checked_leg_beats_the_estimate(self):
         out = ok("route", "home", "work")
@@ -411,6 +409,7 @@ class GroundTests(unittest.TestCase):
         self.assertIn("door to door", out)
 
     def test_no_road_between_land_masses(self):
+        # by bike the leg keeps its straight-line figures and says where each end stands
         for pair, a_land, b_land in (
                 (("dublin", "london"), "on the island of Ireland", "on Great Britain"),
                 (("palermo", "rome"), "on Sicily", "on the mainland of Europe, Asia and Africa"),
@@ -419,24 +418,27 @@ class GroundTests(unittest.TestCase):
                 (("honolulu", "washington"), "in Hawaii", "in North America"),
                 (("tokyo", "warsaw"), "in Japan", "on the mainland of Europe, Asia and Africa"),
                 (("52.2,21.0", "38.9,-77.0"), "on the mainland of Europe, Asia and Africa", "in North America")):
-            out = ok("route", *pair)
+            out = ok("route", *pair, "--mode", "bike")
             self.assertIn(" is %s and " % a_land, field(out, "NO ROAD"), pair)
-            self.assertIn(" is %s. No road joins them" % b_land, field(out, "NO ROAD"), pair)
+            self.assertIn(" is %s. No road joins them, so the crossing is by ship, where a ferry runs at all: the figures for "
+                          "this leg are a straight line and not a journey. Plan it as a drive for a way across, or try --mode air."
+                          % b_land, field(out, "NO ROAD"), pair)
             self.assertNotIn("LIVE MAP", out, pair)
+            self.assertNotIn("PLAN", out, pair)
         # one land mass, however far: no warning, and the live map is back
         for pair in (("warsaw", "lisbon"), ("belfast", "dublin"), ("kuching", "pontianak"), ("lisbon", "singapore"),
                      ("anchorage", "panama"), ("reggio di calabria", "rome")):
             out = ok("route", *pair)
-            self.assertNotIn("NO ROAD", out, pair)
-            self.assertNotIn("CROSSING", out, pair)
-            self.assertNotIn("CHECK", out, pair)
+            for key in ("NO ROAD", "CROSSING", "CHECK", "PLAN"):
+                self.assertNotIn(key, out, pair)
             self.assertIn("LIVE MAP", out, pair)
         # joined by land, not by road
+        gap = ("North and South America are joined by land but not by road: the Pan-American Highway breaks at the Darien gap, "
+               "roughly 106 km between Yaviza in Panama and Turbo in Colombia [Wikipedia, Darien Gap]")
+        self.assertIn("NO ROAD    leg 1: %s, so the crossing is by ship" % gap, ok("route", "panama", "bogota", "--mode", "walk"))
         out = ok("route", "panama", "bogota")
-        self.assertIn("NO ROAD    leg 1: North and South America are joined by land but not by road: the Pan-American Highway "
-                      "breaks at the Darien gap, roughly 106 km between Yaviza in Panama and Turbo in Colombia "
-                      "[Wikipedia, Darien Gap]. A vehicle goes round by sea, so the figures for this leg are a straight line "
-                      "and not a journey.", out)
+        self.assertIn("NO ROAD    leg 1: %s, so this leg is planned by air and the car stays behind." % gap, out)
+        self.assertIn("fly      PTY -> BOG: ", out)
         # by rail the table claims less, and in the air it has nothing to say
         self.assertIn("No road joins them, and this table knows of no railway that does", ok("route", "dublin", "london", "--mode", "rail"))
         self.assertNotIn("NO ROAD", ok("route", "dublin", "london", "--mode", "air"))
@@ -445,47 +447,177 @@ class GroundTests(unittest.TestCase):
         self.assertIn("CHECK      leg 1 is 4,448 km in a straight line: is there a road all the way? Try --mode air.", out)
         self.assertNotIn("NO ROAD", out)
 
+    def test_a_drive_with_no_road_is_planned_by_air(self):
+        home, far = geo.parse_point("warsaw"), geo.parse_point("washington")
+        with contextlib.redirect_stdout(io.StringIO()):     # 'waw' is also a town: the ALSO line is not this test's business
+            waw, dca = geo.parse_point("waw"), geo.parse_point("dca")
+        d1 = geo.haversine_km(home[1], home[2], waw[1], waw[2]) * 1.25
+        d2 = geo.haversine_km(dca[1], dca[2], far[1], far[2]) * 1.25
+        flown = geo.haversine_km(waw[1], waw[2], dca[1], dca[2]) * 1.05
+        block = flown / 800.0 + 0.5
+        wheel, carried = (d1 + d2) / 80.0, 2.0 + block + 0.75
+        out = ok("route", "warsaw", "washington", "--depart", "2026-11-14 08:00", "--firn", "--fatigue")
+        self.assertIn(" | no road: by air, WAW to DCA | ", field(out, "LEG 1"))
+        self.assertEqual(field(out, "PLAN"), "drive    Warsaw -> Warsaw Chopin Airport (WAW): ~%s km, %s" % (core.num(d1), core.fmt_hm(d1 / 80.0)))
+        for line in ("airport  2h00m before the flight",
+                     "fly      WAW -> DCA: ~%s km, %s as if flown direct" % (core.num(flown), core.fmt_hm(block)),
+                     "airport  0h45m to get out",
+                     "%s door to door [estimate]: as if flown direct at 800 km/h: which airports a real ticket uses, and any change "
+                     "on the way, is the airline's to say. Look the flight up. No car ferry is on file between these two: if the car "
+                     "must come, search for one" % core.fmt_hm(wheel + carried)):
+            self.assertIn("\n           " + line + "\n", out)
+        self.assertEqual(field(out, "ROAD"), "~%s km [estimate: straight line x 1.25]" % core.num(d1 + d2))
+        self.assertEqual(field(out, "BY AIR"), "~%s km [estimate: great circle x 1.05, as if flown direct]" % core.num(flown))
+        self.assertEqual(field(out, "DRIVE"), "%s at 80 km/h average, and %s for the flight and the airports [car mode]" % (
+            core.fmt_hm(wheel), core.fmt_hm(carried)))
+        self.assertEqual(field(out, "BREAKS"), "0 x 15 min = 0h00m (one every 2 h)")
+        self.assertEqual(field(out, "TOTAL"), "%s [estimate]" % core.fmt_hm(round((wheel + carried) * 1.10 * 60) / 60.0))
+        # the sun on the road and the low hours are a driver's matters, and the car does not fly
+        self.assertIn("NOTE       light, glare and fatigue are worked out for a drive: with leg 1 in the way, check each drive on its own", out)
+        for key in ("LIGHT", "GLARE", "FATIGUE", "LIVE MAP"):
+            self.assertNotIn("\n" + key, out)
+        self.assertEqual(field(out, "RANGE"), "%s km of 1,500 km [lore] -> %s km left" % (core.num(d1), core.num(1500 - d1)))
+        self.assertIn("he does not fly or sail: this is his drive as far as Warsaw Chopin Airport (WAW), where he waits", out)
+        code, _, err = run("route", "warsaw", "washington", "--window", "06:00-12:00")
+        self.assertNotEqual(code, 0)
+        self.assertIn("leg 1 is not a drive: give --depart or --arrive", err)
+        # the hours every other command sees are door to door
+        self.assertAlmostEqual(geo.estimate_leg(home, far, "car")[2], wheel + carried, places=9)
+        self.assertAlmostEqual(geo.estimate_leg(home, far, "car")[1], d1 + d2, places=9)
+
+    def test_which_airport(self):
+        """The nearest large airport with scheduled flights within 150 km, before a nearer small one; else any within 300 km."""
+        from firnlib import crossing
+        for name, want in (("reykjavik", "KEF"), ("warsaw", "WAW"), ("honolulu", "HNL"), ("palermo", "PMO"), ("hobart", "HBA"),
+                           ("krakow", "KRK"), ("lhr", "LHR")):
+            with contextlib.redirect_stdout(io.StringIO()):
+                here = geo.parse_point(name)
+            self.assertEqual(crossing.code(crossing.airport_for(here)), want, name)
+        self.assertIsNone(crossing.airport_for(geo.parse_point("adamstown")))
+        self.assertIsNone(crossing.airport_for(geo.parse_point("0,-30")))
+        # never one across the water: Messina's is on Sicily, not the nearer field at Reggio di Calabria
+        port = crossing.airport_for(geo.parse_point("messina"))
+        self.assertEqual(geo.land_of(port)[0], "sicily")
+        table = core.load_data("airports")
+        large, scheduled = set(table["large"].split()), set(table["scheduled"].split())
+        self.assertFalse(large & scheduled)
+        self.assertTrue(len(large) > 1000 and len(scheduled) > 2500)
+        import sqlite3
+        db = sqlite3.connect(os.path.join(SCRIPTS, "data", "places.db"))
+        fields = set(row[0] for row in db.execute("SELECT key FROM place WHERE kind = 'airport'"))
+        db.close()
+        self.assertTrue(large <= fields and scheduled <= fields)
+        self.assertIn("OurAirports", table["source"])
+
+    def test_no_airport_no_boat_is_a_guess_over_water(self):
+        from firnlib import crossing
+        pace = crossing.sea_speed()
+        self.assertTrue(20 < pace < 35)
+        a, b = geo.parse_point("adamstown"), geo.parse_point("auckland")
+        km = geo.haversine_km(a[1], a[2], b[1], b[2])
+        out = ok("route", "adamstown", "auckland")
+        self.assertIn("NO ROAD    leg 1: Adamstown is in the Pitcairn Islands and Auckland is in New Zealand. No road joins them, and no "
+                      "car ferry between them is on file; no airport with scheduled flights is within 300 km of Adamstown.", out)
+        self.assertEqual(field(out, "PLAN"), "by sea   Adamstown -> Auckland: %s km in a straight line at %s km/h, the pace of the "
+                         "ferries on file: %s" % (core.num(km), core.trim(pace, 0), core.fmt_hm(km / pace)))
+        self.assertIn("a guess, not a journey: no boat is known to run this way. Search for one, or try --mode air", out)
+        self.assertEqual(field(out, "BY SEA"), "%s km [a guess: straight line]" % core.num(km))
+        self.assertEqual(field(out, "DRIVE"), "0h00m at 80 km/h average, and %s for the water [car mode]" % core.fmt_hm(km / pace))
+        # --via forces the one or the other
+        out = ok("route", "warsaw", "washington", "--via", "sea")
+        self.assertIn(" | no road: a guess over water | ", field(out, "LEG 1"))
+        self.assertNotIn("no airport", out)
+        out = ok("route", "london", "paris", "--via", "air")
+        self.assertIn(" | no road: by air, LHR to ", field(out, "LEG 1"))
+        self.assertIn("OR         with the car, by shuttle, Folkestone to Calais: ", out)
+        code, _, err = run("route", "london", "paris", "--mode", "rail", "--via", "air")
+        self.assertNotEqual(code, 0)
+        self.assertIn("--via chooses how a drive gets across water", err)
+
     def test_channel_crossing_is_in_the_total(self):
+        a, b = geo.parse_point("london"), geo.parse_point("paris")
+        d1 = geo.haversine_km(a[1], a[2], 51.0817, 1.1673) * 1.25
+        d2 = geo.haversine_km(50.9504, 1.8333, b[1], b[2]) * 1.25
+        wheel = (d1 + d2) / 80.0
         out = ok("route", "london", "paris")
+        self.assertIn(" | by shuttle, Folkestone to Calais | ", field(out, "LEG 1"))
         self.assertIn("CROSSING   leg 1: Great Britain has no road to the mainland. A car crosses on the shuttle train through "
-                      "the Channel Tunnel, between Folkestone and Calais, or on a ferry. 1h35m is added for it: 35 min on board, "
-                      "after arriving 1 h before departure as the operator asks. The quickest ferry is 90 min on board, and a "
-                      "queue at the terminal or the port is not counted [LeShuttle].", out)
-        km = geo.haversine_km(51.5019, -0.1187, 48.8686, 2.3314) * 1.25
-        wheel = km / 80.0
-        self.assertEqual(field(out, "DRIVE"), "%s at 80 km/h average + 1h35m for the crossing [car mode]" % core.fmt_hm(wheel + 95 / 60.0))
+                      "the Channel Tunnel, between Folkestone and Calais, or on a ferry.\n", out)
+        self.assertEqual(field(out, "PLAN"), "drive    London -> Folkestone: ~%s km, %s" % (core.num(d1), core.fmt_hm(d1 / 80.0)))
+        for line in ("terminal 1h00m before departure [LeShuttle]", "shuttle  Folkestone -> Calais: 0h35m on board [LeShuttle]",
+                     "drive    Calais -> Paris: ~%s km, %s" % (core.num(d2), core.fmt_hm(d2 / 80.0)),
+                     "%s door to door [estimate]: the quickest ferry is 90 min on board, and a queue at the terminal or the port "
+                     "is not counted [LeShuttle]" % core.fmt_hm(wheel + 95 / 60.0)):
+            self.assertIn("\n           " + line + "\n", out)
+        self.assertTrue(field(out, "OR").startswith("by air, without the car: "))
+        self.assertTrue(field(out, "OR").endswith(". Add --via air for that plan"))
+        self.assertEqual(field(out, "ROAD"), "~%s km [estimate: straight line x 1.25]" % core.num(d1 + d2))
+        self.assertEqual(field(out, "DRIVE"), "%s at 80 km/h average, and 1h35m for the crossing [car mode]" % core.fmt_hm(wheel))
         self.assertEqual(int(wheel // 2), 2)
         self.assertEqual(field(out, "BREAKS"), "2 x 15 min = 0h30m (one every 2 h)")       # the crossing earns no break
         total = round((wheel + 95 / 60.0 + 0.5) * 1.10 * 60) / 60.0
         self.assertEqual(field(out, "TOTAL"), "%s [estimate]" % core.fmt_hm(total))
         self.assertIn("LIVE MAP", out)
+        self.assertNotIn("BY AIR", out)
+        # he rides the shuttle with the car, so the range is the road on both sides
+        self.assertEqual(field(ok("route", "london", "paris", "--firn"), "RANGE"),
+                         "%s km of 1,500 km [lore] -> %s km left" % (core.num(d1 + d2), core.num(1500 - d1 - d2)))
         # a train goes through the tunnel; a bicycle does not
         out = ok("route", "london", "paris", "--mode", "rail")
         self.assertNotIn("CROSSING", out)
         self.assertNotIn("NO ROAD", out)
         self.assertIn("NO ROAD    leg 1: London is on Great Britain", ok("route", "london", "paris", "--mode", "bike"))
         # a checked leg already holds its crossing
-        a, b = geo.parse_point("london"), geo.parse_point("paris")
         key, text, hours = geo.land_note(a, b, "car", checked=True)
         self.assertEqual((key, hours), ("CROSSING", 0.0))
-        self.assertIn("The checked figure for this leg is taken to hold the crossing: 35 min on board", text)
+        self.assertTrue(text.endswith("or on a ferry. The checked figure for this leg is taken to hold the crossing"))
         self.assertAlmostEqual(geo.estimate_leg(a, b, "car")[2], wheel + 95 / 60.0, places=9)
         self.assertAlmostEqual(geo.estimate_leg(a, b, "rail")[2], geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.30 / 90.0, places=9)
+        self.assertAlmostEqual(geo.ground_leg(a, b, "car")[2], geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.25 / 80.0, places=9)
+
+    def test_a_car_ferry_on_file_carries_the_car(self):
+        out = ok("route", "dublin", "london")
+        self.assertIn("CROSSING   leg 1: Dublin is on the island of Ireland and London is on Great Britain. No road joins them: a car "
+                      "is carried, on the Irish Sea ferry.\n", out)
+        self.assertEqual(field(out, "PLAN"), "terminal 0h30m before departure [Direct Ferries]")
+        self.assertIn("\n           ferry    Dublin -> Holyhead: 3h15m on board [Direct Ferries]\n", out)
+        self.assertIn("a queue at the terminal or the port is not counted [Direct Ferries]", out)
+        self.assertIn(", and 3h45m for the crossing [car mode]", field(out, "DRIVE"))
+        self.assertIn("LIVE MAP", out)
+        # of two crossings between the same shores, the one that gets there sooner
+        for pair, line in ((("belfast", "glasgow"), "ferry    Belfast -> Cairnryan: 2h15m on board [Stena Line timetable]"),
+                           (("cork", "cardiff"), "ferry    Dublin -> Holyhead: 3h15m on board [Direct Ferries]"),
+                           (("rome", "palermo"), "ferry    Villa San Giovanni -> Messina: 0h20m on board [Traghettilines]"),
+                           (("wellington", "christchurch"), "ferry    Wellington -> Picton: 3h30m on board [Interislander]"),
+                           (("sapporo", "tokyo"), "ferry    Hakodate -> Aomori: 3h40m on board [AFerry]"),
+                           (("victoria_ca", "vancouver"), "ferry    Swartz Bay -> Tsawwassen: 1h35m on board [britishcolumbia.com]")):
+            out = ok("route", *pair)
+            self.assertIn("\n           " + line + "\n", out, pair)
+            self.assertIn("CROSSING   leg 1: ", out, pair)
+            self.assertNotIn("NO ROAD", out, pair)
 
     def test_the_sea_is_named_wherever_a_leg_is_estimated(self):
         out = ok("convoy", "anna:dublin", "ben:paris", "cy:leeds", "--to", "london", "--arrive", "2026-11-14 18:00")
-        self.assertIn("NO ROAD    Anna: Dublin is on the island of Ireland and London is on Great Britain.", out)
+        self.assertIn("CROSSING   Anna: Dublin is on the island of Ireland and London is on Great Britain. No road joins them: a car is "
+                      "carried, on the Irish Sea ferry. By ferry, Dublin to Holyhead: 3h15m on board after 0h30m at the terminal, ", out)
+        self.assertIn(" door to door, in the total. A queue at the terminal or the port is not counted [Direct Ferries].", out)
         self.assertIn("CROSSING   Ben: Great Britain has no road to the mainland.", out)
+        self.assertIn("By shuttle, Calais to Folkestone: 0h35m on board after 1h00m at the terminal, ", out)
         self.assertIn("on the move + 2 breaks", field(out, "BEN"))
         self.assertEqual(out.count("NO ROAD") + out.count("CROSSING"), 2)
         out = ok("tour", "london", "paris", "brussels", "dublin")
         self.assertIn("CROSSING   leg 1: Great Britain has no road", out)
-        self.assertIn("NO ROAD    leg 3: Paris is on the mainland", out)
+        self.assertIn("NO ROAD    leg 3: Paris is on the mainland of Europe, Asia and Africa and Dublin is on the island of Ireland. "
+                      "No road joins them, so this leg is planned by air and the car stays behind. By air, ", out)
         out = ok("trip", "lhr 2026-12-18 10:40 > cdg 12:55", "--home", "paris", "--onward", "london")
         self.assertIn("CROSSING   the way to London Heathrow Airport (LHR): Great Britain has no road", out)
         self.assertIn("CROSSING   onward to London: Great Britain has no road", out)
         out = ok("brief", "warsaw", "washington")
         self.assertIn("NO ROAD    leg 1: Warsaw is on the mainland", out)
+        self.assertIn("PLAN       drive    Warsaw -> Warsaw Chopin Airport (WAW): ", out)
+        self.assertIn("\n           fly      WAW -> DCA: ", out)
+        self.assertIn("BY AIR     ~", out)
+        self.assertIn("OR         by air, without the car: ", ok("brief", "london", "paris"))
 
     def test_land_mass_table(self):
         table = core.load_data("landmasses")
@@ -499,16 +631,27 @@ class GroundTests(unittest.TestCase):
             self.assertIn(mass, table["masses"])
             self.assertTrue(-90 <= south < north <= 90 and -180 <= west < east <= 180, (mass, cc))
             self.assertNotEqual(table["countries"].get(mass), [cc], "%s is filed there already" % cc)
-        for pair, link in table["links"].items():
-            a, b = pair.split("|")
-            self.assertEqual([a, b], sorted([a, b]))
-            self.assertIn(a, table["masses"])
-            self.assertIn(b, table["masses"])
-            self.assertIn(link["key"], ("NO ROAD", "CROSSING"))
-            self.assertTrue(set(link["modes"]) | set(link.get("through", ())) <= set(geo.MODES))
-            for tag in re.findall(r"\[([^\]]+)\]", link["text"] + link.get("adds", "")):
+        lands = set(table["masses"]) | set(table["own"])
+        tagged = lambda text: re.findall(r"\[([^\]]+)\]", text)
+        for pair, modes in table["through"].items():
+            self.assertTrue(set(pair.split("|")) <= lands and set(modes) <= set(geo.MODES), pair)
+        for pair, text in table["gaps"].items():
+            self.assertEqual(pair.split("|"), sorted(pair.split("|")))
+            self.assertTrue(set(pair.split("|")) <= lands, pair)
+            self.assertTrue(tagged(text) and set(tagged(text)) <= set(table["sources"]), pair)
+        self.assertEqual(len(table["crossings"]), 7)
+        for c in table["crossings"]:
+            self.assertIn(c["kind"], ("ferry", "shuttle"))
+            self.assertIn(c["source"], table["sources"], c["name"])
+            self.assertTrue(0 < c["board_min"] < 24 * 60 and 0 < c["before_min"] <= 180, c["name"])
+            self.assertEqual(len(c["ends"]), 2)
+            self.assertNotEqual(c["ends"][0][0], c["ends"][1][0])
+            for mass, port, lat, lon in c["ends"]:
+                self.assertIn(mass, lands, port)
+                self.assertTrue(-90 <= lat <= 90 and -180 <= lon <= 180, port)
+            for tag in tagged(c.get("why", "") + c.get("more", "")):
                 self.assertIn(tag, table["sources"])
-            self.assertEqual("minutes" in link, "adds" in link)
+        self.assertNotIn("links", table)
         with open(os.path.join(SCRIPTS, "data", "SOURCES.md"), encoding="utf-8") as f:
             self.assertIn("`landmasses.json`", f.read())
         # where the boxes end: the island in, the shore across the water out
@@ -2895,7 +3038,7 @@ class PackageTests(unittest.TestCase):
                         self.assertNotIn(b"\t", data, f)
 
     def test_data_files(self):
-        for name in ("zones", "lore", "scenarios", "obd", "lights", "lsl", "rulesets", "checklists", "arms", "countries", "landmasses", "commands"):
+        for name in ("zones", "lore", "scenarios", "obd", "lights", "lsl", "rulesets", "checklists", "arms", "countries", "landmasses", "airports", "commands"):
             self.assertTrue(core.load_data(name), name)
         self.assertTrue(os.path.isfile(os.path.join(SCRIPTS, "data", "places.db")))
         self.assertFalse(os.path.exists(os.path.join(SCRIPTS, "data", "places.json")), "the old gazetteer is still in the package")

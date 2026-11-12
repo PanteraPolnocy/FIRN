@@ -10,7 +10,7 @@ import io
 from . import geo
 from .core import command, die, driver, trim
 
-ROUTE_KEYS = ("ALSO", "CHECK", "NO ROAD", "CROSSING", "ROAD", "FLOWN", "TRACK", "DRIVE", "BLOCK", "RIDE", "WALK", "BREAKS", "TOTAL", "BEST",
+ROUTE_KEYS = ("ALSO", "CHECK", "NO ROAD", "CROSSING", "PLAN", "OR", "ROAD", "BY AIR", "BY SEA", "FLOWN", "TRACK", "DRIVE", "BLOCK", "RIDE", "WALK", "BREAKS", "TOTAL", "BEST",
               "DEPART", "LEAVE BY", "ARRIVE", "NOTE", "LIGHT", "GLARE", "RANGE", "LIVE MAP")
 WEATHER_KEYS = {"AIR": "WEATHER", "FEELS": "FEELS", "WIND": "WIND", "ROAD": "SURFACE", "STOP": "STOP", "SOURCE": "SOURCE"}
 COUNTRY_DROP = ("DIAL", "CLOCKS")
@@ -63,7 +63,8 @@ def cmd_brief(a):
 
     argv = ["route"] + list(a.points) + ["--mode", a.mode]
     for flag, value in (("--speed", a.speed), ("--road", a.road), ("--depart", a.depart), ("--arrive", a.arrive),
-                        ("--window", a.window), ("--date", a.date), ("--tz", a.tz), ("--low-hours", a.low_hours)):
+                        ("--window", a.window), ("--date", a.date), ("--tz", a.tz), ("--low-hours", a.low_hours),
+                        ("--via", a.via if a.via != "auto" else None)):
         if value is not None:
             argv.append("%s=%s" % (flag, value))
     argv += ["--before-dark"] if a.before_dark else []
@@ -152,6 +153,7 @@ def register(sub):
     p.add_argument("--mode", default="car", choices=sorted(geo.MODES), help="as for 'route' (default car)")
     p.add_argument("--speed", type=float, help="average km/h, overrides the mode")
     p.add_argument("--road", type=float, help="travel distance / straight distance, overrides the mode")
+    p.add_argument("--via", default="auto", choices=("auto", "air", "sea"), help="as for 'route': how a drive gets across water")
     p.add_argument("--depart", help="departure, in the origin's own zone")
     p.add_argument("--arrive", help="plan backwards: be there by this time, in the destination's own zone")
     p.add_argument("--window", metavar="HH:MM-HH:MM", help="choose the departure for me, as 'route --window' does")

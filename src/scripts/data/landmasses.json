@@ -1,7 +1,13 @@
 {
- "note": "Which land mass a place stands on, for a journey over the ground: between two of them a vehicle needs a ship, a shuttle train or a flight. Filed by country, with boxes (land mass, country, south, north, west, east) for islands that belong to a country filed elsewhere. Made for this skill from the map, as a warning and not an authority: a country of many islands counts as one piece unless a box says otherwise, small islands are not listed, and nothing here knows of a closed border or a road that is shut. The live map decides.",
+ "note": "Which land mass a place stands on, for a journey over the ground, and how a car gets from one to the next. Filed by country, with boxes (land mass, country, south, north, west, east) for islands that belong to a country filed elsewhere. Made for this skill from the map, as a warning and not an authority: a country of many islands counts as one piece unless a box says otherwise, small islands are not listed, and nothing here knows of a closed border or a road that is shut. 'crossings' are car-carrying links with a source each: minutes on board, minutes to be there before, and the two ports as town points good to a few kilometres. A crossing not listed may still exist: search for it. The live map and the operator's page decide.",
  "sources": {
-  "LeShuttle": "leshuttle.com, read 2026-11-12: cars ride a shuttle train through the Channel Tunnel between Folkestone and Calais, 35 minutes; arrive at the terminal at least 1 hour before departure ('On the day'). The Dover to Calais ferry takes 90 minutes at its quickest ('Driving to Calais')",
+  "LeShuttle": "leshuttle.com, 'On the day', read 2026-11-12: cars ride a shuttle train through the Channel Tunnel between Folkestone and Calais, 35 minutes; aim to arrive at the terminal at least 1 hour before departure. 'Driving to Calais': the Dover to Calais ferry takes 90 minutes at its quickest",
+  "Direct Ferries": "directferries.co.uk, 'Holyhead - Dublin', read 2026-11-12: Irish Ferries and Stena Line, around 3 hours 15 minutes; Irish Ferries check-in 30 minutes before departure, Stena Line 45 minutes for cars. A booking site quoting the operators, not an operator's own page",
+  "Stena Line timetable": "Stena Line Cairnryan - Belfast timetable of 17 February 2025 as published by Dumfries and Galloway Council, read 2026-11-12: sailings of 2 hours 15 minutes (07:30 to 09:45); latest check-in 45 minutes for vehicles",
+  "Traghettilines": "traghettilines.it, 'Traghetti Messina Villa San Giovanni', read 2026-11-12: Caronte & Tourist, about 20 minutes, round the clock; arrive at the port at least 30 minutes before. A booking site, not the operator",
+  "Interislander": "interislander.co.nz, 'Ferry timetable', read 2026-11-12: allow three and a half hours for the sailing between Wellington and Picton. Vehicle check-in at least 60 minutes before departure, as quoted by newzealand.com.au's Interislander questions",
+  "AFerry": "aferry.com, 'Hakodate to Aomori Ferry', read 2026-11-12: Tsugaru Kaikyo Ferry, around 3 hours 40 minutes; check-in 90 minutes before departure. A booking site, not the operator",
+  "britishcolumbia.com": "britishcolumbia.com, BC Ferries Tsawwassen - Swartz Bay, read 2026-11-12: sailing time 1 hour 35 minutes. Arrive 45 to 60 minutes before the sailing, as vancouverplanner.com recommends. Neither is the operator's own page",
   "Wikipedia, Darien Gap": "en.wikipedia.org/wiki/Darien_Gap, read 2026-11-12: the gap interrupts the Pan-American Highway, which breaks at Yaviza in Panama and resumes at Turbo in Colombia, roughly 106 km away"
  },
  "masses": {
@@ -119,8 +125,19 @@
   ["new-guinea", "ID", -9.2, -4.9, 136.5, 141.05],
   ["timor", "ID", -10.4, -8.95, 123.4, 125.1]
  ],
- "links": {
-  "great-britain|mainland": {"key": "CROSSING", "modes": ["car", "motorway", "city"], "through": ["rail"], "minutes": 95, "text": "Great Britain has no road to the mainland. A car crosses on the shuttle train through the Channel Tunnel, between Folkestone and Calais, or on a ferry", "adds": "35 min on board, after arriving 1 h before departure as the operator asks. The quickest ferry is 90 min on board, and a queue at the terminal or the port is not counted [LeShuttle]"},
-  "north-america|south-america": {"key": "NO ROAD", "modes": ["car", "motorway", "city", "bike", "walk", "rail"], "text": "North and South America are joined by land but not by road: the Pan-American Highway breaks at the Darien gap, roughly 106 km between Yaviza in Panama and Turbo in Colombia [Wikipedia, Darien Gap]. A vehicle goes round by sea"}
- }
+ "through": {
+  "great-britain|mainland": ["rail"]
+ },
+ "gaps": {
+  "north-america|south-america": "North and South America are joined by land but not by road: the Pan-American Highway breaks at the Darien gap, roughly 106 km between Yaviza in Panama and Turbo in Colombia [Wikipedia, Darien Gap]"
+ },
+ "crossings": [
+  {"name": "the shuttle train through the Channel Tunnel", "kind": "shuttle", "board_min": 35, "before_min": 60, "ends": [["great-britain", "Folkestone", 51.0817, 1.1673], ["mainland", "Calais", 50.9504, 1.8333]], "source": "LeShuttle", "why": "Great Britain has no road to the mainland. A car crosses on the shuttle train through the Channel Tunnel, between Folkestone and Calais, or on a ferry", "more": "the quickest ferry is 90 min on board"},
+  {"name": "the Irish Sea ferry", "kind": "ferry", "board_min": 195, "before_min": 30, "ends": [["ireland", "Dublin", 53.335, -6.2509], ["great-britain", "Holyhead", 53.309, -4.633]], "source": "Direct Ferries"},
+  {"name": "the North Channel ferry", "kind": "ferry", "board_min": 135, "before_min": 45, "ends": [["ireland", "Belfast", 54.6, -5.96], ["great-britain", "Cairnryan", 54.97, -5.02]], "source": "Stena Line timetable"},
+  {"name": "the Strait of Messina ferry", "kind": "ferry", "board_min": 20, "before_min": 30, "ends": [["sicily", "Messina", 38.2005, 15.55], ["mainland", "Villa San Giovanni", 38.22, 15.64]], "source": "Traghettilines"},
+  {"name": "the Cook Strait ferry", "kind": "ferry", "board_min": 210, "before_min": 60, "ends": [["NZ", "Wellington", -41.3, 174.7833], ["nz-south", "Picton", -41.2805, 174.0166]], "source": "Interislander"},
+  {"name": "the Tsugaru Strait ferry", "kind": "ferry", "board_min": 220, "before_min": 90, "ends": [["hokkaido", "Hakodate", 41.795, 140.74], ["JP", "Aomori", 40.825, 140.71]], "source": "AFerry"},
+  {"name": "the Strait of Georgia ferry", "kind": "ferry", "board_min": 95, "before_min": 60, "ends": [["north-america", "Tsawwassen", 49.007, -123.13], ["vancouver-island", "Swartz Bay", 48.689, -123.41]], "source": "britishcolumbia.com"}
+ ]
 }

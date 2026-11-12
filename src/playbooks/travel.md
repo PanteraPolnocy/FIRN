@@ -8,9 +8,15 @@ Routes, trips, connections, clocks, weather, packing. Your programme role in one
 2. Decide what is being asked: one place to another today, a trip with connections, several people meeting, or simply what time it is somewhere.
 3. Real figures first. For a real road or a real timetable, use a live map or the carrier if you can search, and give the source and the time you looked. `route` prints a live-map link built from coordinates: offer it, so the driver can check in one click.
 4. No source to hand: `route` estimates from the straight-line distance and says so. An estimate stays an estimate in your reply.
-   - `NO ROAD` means the two ends are on land masses no road joins: an ocean, an island, the gap between the Americas. Say that first. The km and hours printed for that leg are a straight line: never give them as a drive. Offer what is real: `--mode air`, or a route to the port and another from the far side.
-   - `CROSSING` means a car is carried over, as between Great Britain and the mainland. The time it names is already in the total and earns no break. Say the crossing aloud, and that a queue or a slower ferry is not counted; the operator's page has today's times.
-   - `route`, `brief`, `tour`, `convoy` and the home and onward legs of `trip` all print these. The table behind them is a warning, not a map: it files places by country, knows only the larger islands, and knows nothing of a closed border.
+
+
+   - Where no road joins the two ends of a drive (an ocean, an island, the gap between the Americas) `route` plans the way across and prints it under `PLAN`, in this order:
+     - `CROSSING`: a car ferry or shuttle on file carries the car. Its time is in the total and earns no break. Say the crossing aloud, and that a queue is not counted. The `OR` line gives the same journey by air, without the car.
+     - `NO ROAD`, by air: drive to an airport, fly, drive on, door to door. The car stays behind: say so. The flight is geometry, flown as if direct between the nearest airports with scheduled service. It is not a timetable. If you can search, look up the real flight and any change on the way before you state a time, and name the source.
+     - `NO ROAD`, a guess over water: no airport in reach and no ferry on file. The hours are a straight line at the pace of the ferries on file. Never give them as a journey. Search for a boat, and say plainly if you find none.
+     - `--via air` or `--via sea` forces the one. A ferry not on file may still run: the table holds seven crossings, each with its source. If the car must come and none is on file, search for one.
+   - By bike, on foot or by rail the leg keeps its straight-line figures and a `NO ROAD` line says so. `brief`, `tour`, `convoy` and the home and onward legs of `trip` use the same plan and name it in one line.
+   - The table behind this is a warning, not a map: it files places by country, knows only the larger islands, and knows nothing of a closed border.
 5. Then add what a map does not give. This is the part that is yours: breaks, a buffer, the leave-by time worked backwards, daylight and low-sun glare, the clock at the far end, fatigue, and what to check before leaving.
 6. Close with a route card and one line of advice.
 

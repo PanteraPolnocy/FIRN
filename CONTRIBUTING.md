@@ -26,6 +26,7 @@ python tools/build_index.py               rewrites the command index after a com
 python tools/build_places.py DATA_DIR --geonames
                                           regenerates the gazetteer (source URLs are in the file)
 python tools/build_countries.py DATA_DIR  regenerates the country table (the query is in the file)
+python tools/build_airports.py DATA_DIR   regenerates the list of airports with scheduled service (source URL in the file)
 python tools/ascii_escape.py              puts non-ASCII characters in Python sources back into escapes
 ```
 
