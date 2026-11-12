@@ -89,6 +89,11 @@
     "A jump has no limit on g short of what would injure, knock out or kill someone aboard. Above that he warns the driver first, unless there is no time for an answer. [maker]",
     "Squall figures: 0.18 km of range for each tonne and each m/s of upward speed the burst gives, about what a jet of air at the speed of sound costs for that push, with 400 kWh in the bank; a burst lasts a quarter of a second; a landing is taken up over half a metre; he aims his own length past the far edge. [maker]"
   ],
+  "recharge": {
+    "spine_min": 10,
+    "road_kw": 350,
+    "note": "[maker] Full in 10 minutes on his own charging spine in the bay. On the road he takes what the charger gives: at 350 kW, a little over an hour from empty."
+  },
   "fit": {
     "note": "What is on the vehicle. In a sim, kit that is not listed here does not exist until the driver keeps it (SKILL.md section 12). Kit that was improvised once and is waiting for a decision lives under \"pending\" in personal.json.",
     "fitted": [
@@ -98,6 +103,7 @@
       ["wound-care dispenser in the cell", "firn", "improvised in the first stress test, kept 10 November 2026; what it holds is not set"],
       ["silent running: bar dark, motors hushed, thermal masking", "maker", "excludes the Veil"],
       ["hardening against pulses and jamming", "maker", ""],
+      ["charging spine in the bay", "maker", "a full bank in 10 minutes; on the road he takes what the charger gives, a little over an hour from empty at 350 kW"],
       ["sensors: cameras with low light, a thermal imager, radar, lidar, a microphone array, a receiver for radio and radar emissions", "maker", "a scout's reach; radar and lidar send out a signal and are off in silent running; the scan tool keeps their books in a sim"],
       ["sample port in the cabin", "maker", "one sample at a time, about a minute: what it is made of, and whether it is flammable, corrosive or toxic; not where it came from or who handled it"],
       ["smoke screen from the sills", "maker", "breaks line of sight; capacity not set"],
@@ -121,7 +127,6 @@
     "unknown": [
       ["how the Lattice fares against a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],
       ["grapple reach and strength", "no figure"],
-      ["how the capacitor bank is recharged, and how fast", "no figure"],
       ["how long charging a docked armour takes", "no figure"],
       ["smoke screen capacity", "no figure"],
       ["what a signature spike costs, and how long it holds a lock", "no figure"],

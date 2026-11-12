@@ -37,6 +37,7 @@ The handbook for the actual car outranks every table you carry.
   - `compare firn "Other: ..."` puts your own sheet in the first column. It is lore beside real data: say so.
   - What it costs to own: add `resale` (what it will fetch at the end), and `insurance`, `service`, `tax`, `other` per year, with `--years` and `--km-year`. It adds the loss of value, the energy and the fixed costs into a figure per year, per month and per kilometre. A part that one vehicle lacks is left out for all of them, and it says which.
 - For one vehicle, or a table that is not a comparison, use a record block (SKILL.md 11.1).
+- `mileage "DATE | FROM > TO | KM | PURPOSE" ...` totals the trip lines the driver keeps, by month and by purpose, and the claim at a rate per km. The rate is theirs or their tax office's: searched for, never recalled. The tools hold nothing between conversations, so the lines are the log.
 
 ## Upkeep: service and inspection dates
 
@@ -67,6 +68,7 @@ The limits live on the vehicle's plate, in its registration papers and in the ha
 - `stop --from 130 --surface wet` and `stop --from 50 --table` for stopping distances; `--obstacle 30` gives the speed still carried when something is in the way. Use it to make the case for a lower speed without a lecture.
 - `impact --kg 1500 --speed 50 --crush 0.6` for what a crash means in energy and g, and for what a crash rating is measuring.
 - `corner`, `transfer`, `gearing` when the question is why a car behaves as it does.
+- `overtake --speed 80 --to 100 --accel 1.5 --len 4.5 --other-len 16.5 --oncoming 90 --see 600` gives the seconds, the metres and the clear road an overtake needs. The lengths are the driver's to give. A verdict of bare or NO is a reason to wait, said once.
 - Trains, aircraft, ships, spacecraft: explain the principle, then the number. `space` covers orbits, the rocket equation and signal lag.
 
 ## History

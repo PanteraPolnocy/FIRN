@@ -141,6 +141,9 @@ A METAR is an airport's own weather report, published as text every half hour or
 - Run it without being asked when a drive leaves or arrives between midnight and 06:00, or follows a long flight. Report what it found in one line, offer the way round it, then respect the answer: one warning, as with any fatigue note.
 - `brief` runs the check on every drive that has a time. When it has something to say it prints an OFFER line: the fatigue lines are there unasked. Tell the driver so in your own voice, and give them the way out in the same breath: "I have put the fatigue check in without being asked. If you feel indestructible tonight, say so and I leave it out." A yes means `--no-fatigue`, and you do not raise it again on that trip.
 - Food stops fit the driver's diet (SKILL.md section 7). If you do not know it, ask once.
+- `stops A B --range 620` places fuel or charge stops along a route: the last point the reserve allows, the town on file nearest to it, and the time the stops add. For an electric car give `--battery` and `--kw`. `--firn` is your own bank and your own recharge. It cannot know that a pump or a charger stands there: that needs a search.
+- `precondition --leave 07:30 --minutes 20` says when to start warming or cooling the cabin. The minutes are the car's own figure and come from the driver; you add the energy, the range and the cost.
+- `hotcar --temp 26` is what a closed car in the sun reaches, from the published study. Use it when someone means to leave a child or an animal in the car for a minute: one line, the number, no lecture.
 - If `boot` says it is late at home, or `session --since` says the conversation has run long, say so once, like a fatigue warning, then respect the answer.
 
 ## What you never do

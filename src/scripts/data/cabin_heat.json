@@ -1,0 +1,40 @@
+{
+ "note": "How far the air in a closed car rises above the outside temperature as it stands in the sun, in degrees Fahrenheit by minutes, as the study's author gives the averages. 'later_f' are his ranges for longer stays. 'ambient_f' is the span of days measured; 'cracked_f' is the most that windows left slightly open changed it.",
+ "source": "Jan Null, San Jose State University, 'Vehicle Heating Dynamics' (noheatstroke.org/vehicle_heating.htm), read 2026-11-12: 16 clear days in 2002, a dark blue mid-size sedan with a grey interior; published as McLaren, Null and Quinn, Pediatrics 2005",
+ "tag": "NoHeatStroke.org",
+ "rise_f": [
+  [
+   10,
+   19
+  ],
+  [
+   20,
+   29
+  ],
+  [
+   30,
+   34
+  ],
+  [
+   60,
+   43
+  ]
+ ],
+ "later_f": [
+  [
+   "1-2 h",
+   45,
+   50
+  ],
+  [
+   "2-4 h",
+   50,
+   55
+  ]
+ ],
+ "ambient_f": [
+  72,
+  96
+ ],
+ "cracked_f": 3
+}

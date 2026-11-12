@@ -1629,9 +1629,9 @@ class DeskTests(unittest.TestCase):
                      "arc", "lead", "board", "armour", "angle", "spot", "scan", "lattice", "triage", "record", "convert", "obd", "lights",
                      "service", "compare", "load", "tow", "fit", "weigh", "measure", "analyse", "pitch", "doppler", "playlist", "listen",
                      "cabin", "lsl", "space", "boot", "session", "ignition", "sheet", "log", "prompt", "check", "checklist", "selftest",
-                     "setup", "rebuild", "tools"):
+                     "setup", "rebuild", "tools", "stops", "precondition", "hotcar", "overtake", "mileage"):
             self.assertRegex(out, r"(?m)^  %s\s" % name)
-        self.assertIn("80 commands.", out)
+        self.assertIn("85 commands.", out)
         self.assertIn("OBJECTS: WEIGHT, SIZE AND ANALYSIS", out)
         self.assertIn("SOUND", out)
 
@@ -2535,7 +2535,7 @@ class BriefTests(unittest.TestCase):
 
     def test_it_leaves_the_toolkit_as_it_found_it(self):
         ok(*self.FULL)
-        self.assertIn("80 commands.", ok("tools"))
+        self.assertIn("85 commands.", ok("tools"))
         self.assertEqual(ok("tools", "--find", "plan", "the", "whole", "journey").splitlines()[1].split()[0], "brief")
 
 
@@ -2972,6 +2972,191 @@ class ReplyCompareCountryTests(unittest.TestCase):
             self.assertEqual(data[code]["emergency"][0], "112", code)
         for code in set(p["cc"] for p in geo.select(kind="capital", with_own=False) if p.get("cc")):
             self.assertIn(code, data)
+
+
+class DailyTests(unittest.TestCase):
+    """Everyday sums: stops on a route, warming the cabin, heat in a parked car, an overtake, a mileage log."""
+
+    def test_stops_fall_where_the_reserve_allows(self):
+        a, b = geo.parse_point("warsaw"), geo.parse_point("lisbon")
+        total = geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.25
+        out = ok("stops", "warsaw", "lisbon", "--range", "620", "--stop-min", "12")
+        self.assertEqual(field(out, "ROUTE"), "Warsaw -> Lisbon: ~%s km by road [estimate: straight line x 1.25]" % core.num(total))
+        self.assertEqual(field(out, "RANGE"), "620 km on a full tank or charge [as given]; starting at 100%, never below 10%, each stop fills to 100%")
+        hop = 620 * 0.9
+        stops = int(math.ceil(total / hop)) - 1
+        self.assertEqual(stops, 6)
+        self.assertTrue(field(out, "STOP 1").startswith("by km 558 (leg 1, near "))
+        self.assertTrue(field(out, "STOP 6").endswith("): 10% -> 100%, 0h12m"))
+        self.assertNotIn("STOP 7", out)
+        self.assertEqual(field(out, "STOPS"), "6, adding 1h12m [12 min each, as given]")
+        left = 100 - (total - stops * hop) / 620 * 100
+        self.assertEqual(field(out, "ARRIVE"), "with %s%% (%s km of range)" % (core.trim(left, 0), core.num(620 * left / 100)))
+        self.assertEqual(field(ok("stops", "krakow", "katowice", "--range", "500"), "STOPS"), "none: the range covers it")
+        # an electric car: the stop time is the charge, with the same taper 'ev charge' uses
+        from types import SimpleNamespace
+        from firnlib import energy
+        profile = energy.charge_profile(SimpleNamespace(kw=150.0, car_max=None, knee=50.0, tail=0.25, ac=False))
+        took = energy.charge_time_h(77.0, 10.0, 80.0, profile)
+        out = ok("stops", "krakow", "gdansk", "--range", "380", "--start", "80", "--fill", "80", "--battery", "77", "--kw", "150")
+        self.assertTrue(field(out, "STOP 1").startswith("by km 266 (leg 1, near "))
+        self.assertTrue(field(out, "STOP 1").endswith("): 10%% -> 80%%, %s" % core.fmt_hm(took)))
+        self.assertEqual(field(out, "STOPS"), "2, adding %s [150 kW, tapering above 50%% as 'ev charge' does]" % core.fmt_hm(2 * took))
+        # a car crossing is still a drive; a flight is not
+        self.assertIn("ROUTE      London -> Paris: ~", ok("stops", "london", "paris", "--range", "300"))
+        for args, word in ((("stops", "warsaw", "washington", "--range", "500"), "leg 1 has no road (by air, WAW to DCA"),
+                           (("stops", "warsaw", "lisbon"), "give --range"),
+                           (("stops", "warsaw", "lisbon", "--range", "500", "--firn"), "leave out --range"),
+                           (("stops", "warsaw", "lisbon", "--range", "500", "--kw", "150"), "needs both --battery and --kw"),
+                           (("stops", "warsaw", "lisbon", "--range", "500", "--fill", "10"), "--fill must be above --reserve")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_his_own_recharge_is_the_makers(self):
+        lore = core.load_data("lore")
+        self.assertEqual((lore["recharge"]["spine_min"], lore["recharge"]["road_kw"]), (10, 350))
+        self.assertTrue(lore["recharge"]["note"].startswith("[maker] "))
+        out = ok("stops", "warsaw", "lisbon", "--firn")
+        self.assertIn("RANGE      1,500 km on a full bank [lore]", out)
+        hour = 400 * 0.9 / 350
+        self.assertTrue(field(out, "STOP 1").startswith("by km 1,350 (leg 1, near "))
+        self.assertTrue(field(out, "STOP 1").endswith("): 10%% -> 100%%, %s" % core.fmt_hm(hour)))
+        self.assertEqual(field(out, "STOPS"), "2, adding %s [350 kW, steady: his recharge has no taper on file]" % core.fmt_hm(2 * hour))
+        self.assertEqual(field(out, "HOME"), "on his own spine in the bay a full bank takes 10 min [lore]; on the road he takes what the charger gives")
+        self.assertEqual(core.fmt_hm(400 / 350.0), "1h09m")     # 'a little over an hour from empty', as she ruled
+        fit = ok("record", "--fit")
+        self.assertIn("FITTED     charging spine in the bay [maker] - a full bank in 10 minutes", fit)
+        self.assertNotIn("how the capacitor bank is recharged", fit)
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("| Recharge | full in 10 minutes on your charging spine in the bay; on the road, what the charger gives: a little "
+                      "over an hour from empty at 350 kW |", skill)
+
+    def test_guest_driver(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("Guest driver. [maker] When someone other than the driver takes the wheel, the Veil, the Squall, the smoke, the "
+                      "spike and any mission module stay locked to the driver. The Cell and the Scales protect the guest regardless. "
+                      "You may open those systems to a commanding officer, provided the chain of command the driver has set is "
+                      "followed.", skill)
+        # what she did not pick stays out
+        for word in ("geofence", "speed cap", "capped to"):
+            self.assertNotIn(word, skill)
+
+    def test_precondition(self):
+        out = ok("precondition", "--leave", "2026-11-13 07:30", "--minutes", "25", "--kw", "3", "--kwh-100", "18", "--outside", "-5")
+        self.assertTrue(field(out, "LEAVE").startswith("2026-11-13 07:30 Fri"))
+        self.assertTrue(field(out, "START").startswith("2026-11-13 07:05 Fri"))
+        self.assertTrue(field(out, "START").endswith(": 25 min before [as given]"))
+        self.assertEqual(field(out, "ENERGY"), "1.25 kWh: 3 kW for 25 min [as given]")
+        self.assertEqual(field(out, "RANGE"), "about 7 km of range, at 18 kWh per 100 km [derived]")
+        self.assertEqual(field(out, "GLASS"), "-5 C outside: clear every window before you move, whatever the clock says")
+        out = ok("precondition", "--leave", "16:00", "--minutes", "10", "--kw", "2", "--plugged", "--price", "1.1", "--outside", "30")
+        self.assertEqual(field(out, "RANGE"), "none lost: on the cable the energy comes from the wall")
+        self.assertEqual(field(out, "COST"), "0.37 [0.33 kWh x 1.1]")
+        self.assertNotIn("GLASS", out)
+        out = ok("precondition", "--leave", "07:30", "--minutes", "20")
+        self.assertNotIn("ENERGY", out)
+        self.assertIn("add --kw", out)
+        code, _, err = run("precondition", "--leave", "07:30", "--minutes", "0")
+        self.assertNotEqual(code, 0)
+        self.assertIn("--minutes is how long the car needs", err)
+
+    def test_hot_car_is_the_studys_figures(self):
+        from firnlib import daily
+        table = core.load_data("cabin_heat")
+        self.assertEqual(table["rise_f"], [[10, 19], [20, 29], [30, 34], [60, 43]])
+        self.assertEqual(table["later_f"], [["1-2 h", 45, 50], ["2-4 h", 50, 55]])
+        self.assertEqual((table["ambient_f"], table["cracked_f"]), ([72, 96], 3))
+        self.assertIn("noheatstroke.org", table["source"])
+        self.assertAlmostEqual(daily.rise_f(table, 15), 24.0)
+        self.assertAlmostEqual(daily.rise_f(table, 45), 38.5)
+        self.assertAlmostEqual(daily.rise_f(table, 5), 9.5)
+        self.assertIsNone(daily.rise_f(table, 61))
+        out = ok("hotcar", "--temp", "26", "--minutes", "15")
+        self.assertEqual(field(out, "10 MIN"), "about 37 C inside (+11 C)")
+        self.assertEqual(field(out, "20 MIN"), "about 42 C inside (+16 C)")
+        self.assertEqual(field(out, "30 MIN"), "about 45 C inside (+19 C)")
+        self.assertEqual(field(out, "60 MIN"), "about 50 C inside (+24 C)")
+        self.assertEqual(field(out, "1-2 H"), "about 51 to 54 C inside (+25 to +28 C)")
+        self.assertEqual(field(out, "AT"), "15 min: about 39 C inside [between the study's points]")
+        self.assertEqual(field(out, "WINDOWS"), "left open a crack they changed the rise by less than 1.7 C [NoHeatStroke.org]")
+        self.assertIn("RULE       nobody waits in a parked car in the sun", out)
+        self.assertNotIn("CHECK", out)
+        out = ok("hotcar", "--temp", "10", "--minutes", "90")
+        self.assertEqual(field(out, "CHECK"), "the study measured days of 22 to 36 C: at 10 C this is outside what it saw")
+        self.assertEqual(field(out, "AT"), "90 min is past the study's hour: read the later rows")
+        with open(os.path.join(SCRIPTS, "data", "SOURCES.md"), encoding="utf-8") as f:
+            self.assertIn("`cabin_heat.json`", f.read())
+
+    def test_overtake_known_answer(self):
+        v1, v3, a = 80 / 3.6, 100 / 3.6, 1.5
+        gain = 2 * v1 + 16.5 + 4.5 + 2 * v1
+        t_acc = (v3 - v1) / a
+        gained = 0.5 * a * t_acc ** 2
+        t = t_acc + (gain - gained) / (v3 - v1)
+        dist = v1 * t_acc + gained + v3 * (t - t_acc)
+        need = dist + 90 / 3.6 * t
+        out = ok("overtake", "--speed", "80", "--to", "100", "--accel", "1.5", "--len", "4.5", "--other-len", "16.5", "--oncoming", "90", "--see", "600")
+        self.assertEqual(field(out, "PASS"), "100 km/h past 80 km/h: %s s and %s m of road, from pulling out to back in lane [derived]" % (
+            core.trim(t, 1), core.num(dist)))
+        self.assertEqual(field(out, "PASS"), "100 km/h past 80 km/h: 21.6 s and 591 m of road, from pulling out to back in lane [derived]")
+        self.assertEqual(field(out, "GAIN"), "110 m more than it travels: 44 m behind it, its 16.5 m, your 4.5 m, 44 m ahead of it (2 s gaps)")
+        self.assertEqual(field(out, "PACE"), "80 -> 100 km/h at 1.5 m/s2 [as given]")
+        self.assertEqual(field(out, "CLEAR"), "%s m of empty road ahead when you pull out: your 591 m and the %s m something at 90 km/h "
+                         "covers towards you" % (core.num(need), core.num(need - dist)))
+        self.assertEqual(field(out, "VERDICT"), "NO: %s m needed, 600 m in view" % core.num(need))
+        self.assertTrue(field(ok("overtake", "--speed", "80", "--to", "100", "--accel", "1.5", "--len", "4.5", "--other-len", "16.5",
+                                 "--oncoming", "90", "--see", "1200"), "VERDICT").startswith("bare: "))
+        self.assertTrue(field(ok("overtake", "--speed", "80", "--to", "100", "--accel", "1.5", "--len", "4.5", "--other-len", "16.5",
+                                 "--oncoming", "90", "--see", "1800"), "VERDICT").startswith("room: "))
+        # a steady pass of something slower needs no acceleration
+        out = ok("overtake", "--speed", "90", "--other", "70", "--len", "4.5", "--other-len", "12")
+        steady = (2 * 25.0 + 12 + 4.5 + 2 * 70 / 3.6) / (20 / 3.6)
+        self.assertEqual(field(out, "PASS"), "90 km/h past 70 km/h: %s s and %s m of road, from pulling out to back in lane [derived]" % (
+            core.trim(steady, 1), core.num(25.0 * steady)))
+        self.assertNotIn("PACE", out)
+        # hard acceleration can finish the pass before the target speed
+        out = ok("overtake", "--speed", "90", "--to", "250", "--other-len", "5", "--firn")
+        self.assertIn("at 8.68 m/s2 [sheet: the average over his 0-100 km/h in 3.2 s]: back in lane before reaching 250", field(out, "PACE"))
+        self.assertIn("your 4.85 m", field(out, "GAIN"))
+        for args, word in ((("overtake", "--speed", "80", "--other-len", "12", "--len", "4.5"), "you never get by"),
+                           (("overtake", "--speed", "80", "--to", "100", "--other-len", "12", "--len", "4.5"), "give --accel"),
+                           (("overtake", "--speed", "80", "--to", "100", "--accel", "1", "--other-len", "12"), "give --len"),
+                           (("overtake", "--speed", "80", "--to", "60", "--accel", "1", "--other-len", "12", "--len", "4"), "not below --speed")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+
+    def test_mileage(self):
+        a, b = geo.parse_point("tychy"), geo.parse_point("krakow")
+        there_and_back = geo.haversine_km(a[1], a[2], b[1], b[2]) * 1.25 * 2
+        out = ok("mileage", "2026-12-01 | Tychy > Gliwice | 31.5 | work", "2026-11-03 | Tychy > Katowice | 18 | work",
+                 "2026-11-05 | Tychy <> Krakow | | private", "--rate", "1.15", "--currency", "PLN", "--only", "work")
+        trips = [line for line in out.splitlines() if line.startswith("TRIP ")]
+        self.assertEqual(trips[0], "TRIP       2026-11-03 | Tychy > Katowice | 18 km | work")        # in date order
+        self.assertTrue(trips[1].startswith("TRIP       2026-11-05 | Tychy <> Krak"))
+        self.assertTrue(trips[1].endswith(" | ~%s km | private" % core.trim(there_and_back, 1)))
+        self.assertEqual(trips[2], "TRIP       2026-12-01 | Tychy > Gliwice | 31.5 km | work")
+        self.assertIn("MONTH      2026-11: %s km (private %s, work 18)" % (core.trim(there_and_back + 18, 1), core.trim(there_and_back, 1)), out)
+        self.assertIn("MONTH      2026-12: 31.5 km (work 31.5)", out)
+        self.assertEqual(field(out, "TOTAL"), "3 trips, %s km [1 estimated from the straight line: put the odometer's figure in]" % core.trim(
+            there_and_back + 49.5, 1))
+        self.assertEqual(field(out, "CLAIM"), "56.92 PLN [49.5 km of work x 1.15, rate as given]")
+        self.assertIn("KEEP       the tools hold nothing between conversations", out)
+        out = ok("mileage", "2026-11-03 | home > office | 12,5 km")
+        self.assertIn("TRIP       2026-11-03 | home > office | 12.5 km | unsorted", out)
+        self.assertNotIn("CLAIM", out)
+        self.assertNotIn("BY PURPOSE", out)
+        for args, word in ((("mileage", "Tychy > Katowice"), "a trip is 'DATE | FROM > TO | KM | PURPOSE'"),
+                           (("mileage", "soon | Tychy > Katowice"), "not a date"),
+                           (("mileage", "2026-11-03 | Tychy"), "names where from and where to"),
+                           (("mileage", "2026-11-03 | Warsaw > Washington"), "no road from Warsaw to "),
+                           (("mileage", "2026-11-03 | Tychy > Katowice | 18 | work", "--rate", "1", "--only", "play"), "no trip has the purpose 'play'")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
 
 
 class PackageTests(unittest.TestCase):

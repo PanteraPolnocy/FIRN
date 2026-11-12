@@ -9,6 +9,7 @@ Every table the tools read is in this folder. Nothing is fetched while the tools
 | `places.db` | airports and their codes | OurAirports (ourairports.com) | public domain |
 | `places.db`, `zones.json` | time zones | IANA Time Zone Database | public domain |
 | `countries.json` | which side they drive on, currency, plugs, numbers | Wikidata | CC0 |
+| `cabin_heat.json` | how far a closed car's air rises above the outside temperature in the sun | Jan Null, San Jose State University, "Vehicle Heating Dynamics" (noheatstroke.org); published as McLaren, Null and Quinn, Pediatrics 2005 | published figures, quoted with their source |
 | `airports.json` | which gazetteer airports have scheduled airline service, and which are large | OurAirports (ourairports.com) | public domain |
 | `landmasses.json` | which land mass a place is on, where a road does not join two of them, and seven car crossings | land masses written for this skill from the map; each crossing from the page named beside it in the file (LeShuttle, Direct Ferries, a Stena Line timetable, Traghettilines, Interislander, AFerry, britishcolumbia.com); the break in the Pan-American Highway from Wikipedia, "Darien Gap" | written for this skill |
 | `lsl.json` | the Second Life vehicle reference | the Second Life wiki and Linden Lab's published LSL definitions | compiled reference |
