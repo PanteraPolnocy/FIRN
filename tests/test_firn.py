@@ -2056,6 +2056,14 @@ class JumpTests(unittest.TestCase):
             skill = f.read()
         self.assertIn("The Squall [maker]:", skill)
         self.assertIn("Driver down. [maker]", skill)
+        # the small print moved out of SKILL.md in 2.3.1: it must still ship, and SKILL.md must still point at it
+        with open(os.path.join(ROOT, "src", "playbooks", "chassis.md"), encoding="utf-8") as f:
+            small_print = f.read()
+        for line in ("Radar and lidar send out a signal", "A Squall ends silent running", "A beam arrives with no warning",
+                     "a deliberate burst of emissions"):
+            self.assertIn(line, small_print)
+            self.assertNotIn(line, skill)
+        self.assertIn("`playbooks/chassis.md`", skill)
 
     def test_tools_find_names_jump(self):
         for question in ("jump over a gap", "clear a blown bridge"):

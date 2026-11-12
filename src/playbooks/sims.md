@@ -8,7 +8,7 @@ Combat simulations, forced choices, wargames and dice. The driver runs these to 
    - `scenario` rolls one from the tables, and prints its seed so the same brief can be run again. `scenario --mission recon --difficulty 4` narrows it.
    - Or the driver supplies it. Then you restate it in the same block and ask for anything missing, once.
 2. Confirm it with the driver. From then on the brief is locked. Nothing joins the board that is not on it: no extra kit, no help arriving, no changed odds.
-3. Know what exists. `record --fit` is what is fitted, what is not, and what has no figure. `record --family` is what the people and constructs in play are physically made of, if the driver has put that on file.
+3. Know what exists. Read `playbooks/chassis.md` once: the limits of your senses, the Squall, and what each layer of the Lattice does against each kind of hit. `record --fit` is what is fitted, what is not, and what has no figure. `record --family` is what the people and constructs in play are physically made of, if the driver has put that on file.
 4. Start the ledger: `lattice --temp -3`. It prints a STATE line. Pass it back with `--state` on every later call.
 5. If anyone but you can be hurt, start the board as well: `board add=NAME:HIT_POINTS:SIDE ...`. Say before the first turn whether you are in this sim as yourself, or refereeing it.
 
@@ -39,7 +39,7 @@ lattice --state F2/... drive=12@90 seal wait=5m
 
 - `cost=full:45` previews what a Veil would cost without raising it. Say the cost before you raise it, unless there is no time.
 - `wait=`, `drive=KM@KMH`, `veil=full|partial:FACE|off`, `hit=FACE:heavy|light[:surprise]`, `seal`, `unseal`, `silent=on|off`, `smoke=on|off`, `temp=`.
-- A hit has a kind, after heavy or light: `shot` (the default), `blast`, `beam` or `hand`. SKILL.md section 3 says what each layer does against each: a blast gets nothing from the Scales, a beam boils the Rime once and finds only the Cell the second time, a hand weapon is a light hit at most. With `smoke=on` a quarter of a beam gets through.
+- A hit has a kind, after heavy or light: `shot` (the default), `blast`, `beam` or `hand`. `playbooks/chassis.md` says what each layer does against each: a blast gets nothing from the Scales, a beam boils the Rime once and finds only the Cell the second time, a hand weapon is a light hit at most. With `smoke=on` a quarter of a beam gets through.
 - `armour=1` charges one docked armour from empty out of your bank, at the price section 5 gives; `armour=0.5` is half a charge. How long it takes has no figure: the driver rules.
 - `squall=KM` books a jump: the range the burst cost, as `jump` gave it. It ends silent running. Add `wait=` for the seconds in the air.
 - `km=`, `heat=` and `charge=` set a value by hand, for a brief that starts you warm or short of range, or a recharge the story grants. They are marked as set by hand.
@@ -117,7 +117,7 @@ When the brief names no ruleset, the house rules cover bows and thrown weapons, 
 - Damage comes in kinds (shot, pierce, cut, crush, blast, beam), and each class of armour lets a different share of each through. Mail turns a blade and not a hammer; a mirrored plate halves a beam; nothing hand-held gets through an armoured vehicle.
 - A blast is rolled once, and everyone inside it takes a share by distance, cover and armour, whichever side they are on. Know who is standing where before one goes off.
 - A beam needs no lead and does not drop. What it has is heat (so many shots, then a round to cool) and air: rain, fog and smoke eat it.
-- Against you, section 3 rules: `lattice ... hit=left:light:hand`, `hit=under:heavy:blast`, `hit=front:light:beam`.
+- Against you, section 3 and `playbooks/chassis.md` rule: `lattice ... hit=left:light:hand`, `hit=under:heavy:blast`, `hit=front:light:beam`.
 - A ruleset the driver names outranks all of it. Pass its numbers: `--dice`, `--target`, `--factor`, `--bands`, `--radius`.
 
 ## Lives
