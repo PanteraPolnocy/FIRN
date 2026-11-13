@@ -9,6 +9,39 @@ CO2_KG_PER_L = {"petrol": 2.3, "diesel": 2.7, "lpg": 1.6}
 L_PER_GAL_US = 3.785411784
 L_PER_GAL_UK = 4.54609
 KM_PER_MI = 1.609344
+# For a car nobody has a figure for (fuel --kg): a model, built on three published numbers.
+# Lower heating values in Btu per US gallon [US DOE, Alternative Fuels Data Center, Fuel Properties Comparison];
+# petrol is the middle of its range for gasoline and E10.
+LHV_BTU_GAL = {"petrol": (112114 + 116090) / 2.0, "diesel": 128488.0, "lpg": 84250.0}
+J_PER_BTU = 1055.056
+# the share of the energy put in that reaches the wheels in highway driving [fueleconomy.gov, Where the Energy Goes:
+# Gasoline Vehicles, and Electric Cars with the energy won back in braking counted]
+WHEEL_SHARE = {"petrol": (0.22, 0.30), "electric": (0.77, 0.79)}
+# how much farther a diesel goes on a gallon than its petrol counterpart [fueleconomy.gov, Diesel Vehicles]
+DIESEL_FARTHER = (1.20, 1.35)
+FUELS = sorted(CO2_KG_PER_L) + ["electric"]
+
+
+def kwh_per_litre(fuel):
+    return LHV_BTU_GAL[fuel] * J_PER_BTU / L_PER_GAL_US / 3.6e6
+
+
+def estimate_use(fuel, kg, kmh, cda, crr):
+    """(low, middle, high) consumption on a level road at a steady speed: l/100 km, or kWh/100 km for electric.
+    The wheels' share of the energy is the published highway range, so the spread is the source's, not ours."""
+    from .dynamics import road_load_kw
+    wheels = road_load_kw(kmh / 3.6, kg, cda, crr) / kmh * 100.0       # kWh per 100 km at the wheels
+    if fuel == "electric":
+        lo, hi = WHEEL_SHARE["electric"]
+        return wheels / hi, wheels / ((lo + hi) / 2.0), wheels / lo
+    lo, hi = WHEEL_SHARE["petrol"]
+    petrol = [wheels / share / kwh_per_litre("petrol") for share in (hi, (lo + hi) / 2.0, lo)]
+    if fuel == "lpg":           # the same engine on a fuel with less energy in each litre
+        return tuple(x * kwh_per_litre("petrol") / kwh_per_litre("lpg") for x in petrol)
+    if fuel == "diesel":
+        f_lo, f_hi = DIESEL_FARTHER
+        return petrol[0] / f_hi, petrol[1] / ((f_lo + f_hi) / 2.0), petrol[2] / f_lo
+    return tuple(petrol)
 
 
 def temp_penalty(c):
@@ -203,19 +236,60 @@ def cmd_fuel(a):
         die("--distance must be positive")
     dist = a.distance * (2 if a.ret else 1)
     given = [x for x in (a.l_100, a.mpg_us, a.mpg_uk, a.kwh_100) if x]
-    if len(given) != 1:
+    look_up = ("look up its official combined figure (WLTP in Europe, NEDC for older cars, EPA in the US) and pass it with --l-100 or --kwh-100, and "
+               "--source to say where it came from")
+    est = None
+    if len(given) > 1:
         die("give exactly one of --l-100, --mpg-us, --mpg-uk or --kwh-100")
+    if not given:
+        if a.kg is None:
+            if a.car:
+                die("no consumption figure for %s: %s; or give its mass with --kg for a rough model" % (a.car, look_up))
+            die("give exactly one of --l-100, --mpg-us, --mpg-uk or --kwh-100; or --kg, the car's mass, for a rough model")
+        if not 200 <= a.kg <= 60000:
+            die("--kg is the mass as it drives, car and people and load, between 200 and 60,000")
+        if not 20 <= a.speed <= 250:
+            die("--speed is the steady speed for the model, 20 to 250 km/h")
+        cda = a.cda if a.cda is not None else a.cd * a.area
+        if cda <= 0 or a.crr <= 0:
+            die("drag and rolling resistance must be positive")
+        est = estimate_use(a.fuel, a.kg, a.speed, cda, a.crr)
+    elif a.fuel == "electric" and not a.kwh_100:
+        die("an electric car's consumption is --kwh-100")
     people = max(1, a.people)
+    tag = "estimated" if est else "checked: %s" % a.source if a.source else "derived"
     rec("TRIP", "%s km%s" % (num(dist), " there and back" if a.ret else ""))
+    if a.car:
+        rec("CAR", "%s [as named]" % a.car)
+    if est:
+        unit = "kWh/100 km" if a.fuel == "electric" else "l/100 km of %s" % a.fuel
+        basis = ("the wheels get 77 to 79% of the energy on the highway" if a.fuel == "electric" else
+                 "22 to 30% of a petrol car's fuel energy reaches the wheels on the highway"
+                 + (", and a diesel goes 20 to 35% farther on a litre" if a.fuel == "diesel" else
+                    ", and a litre of LPG holds less energy" if a.fuel == "lpg" else ""))
+        rec("ESTIMATE", "%s %s, somewhere between %s and %s [estimated: a model, not a figure for this car - %s kg on a level road at "
+                        "a steady %s km/h, drag area %s m2, rolling %s; %s (fueleconomy.gov, AFDC)]" % (
+                            trim(est[1], 1), unit, trim(est[0], 1), trim(est[2], 1), num(a.kg), trim(a.speed, 0),
+                            trim(a.cda if a.cda is not None else a.cd * a.area, 2), trim(a.crr, 3), basis))
+        if a.fuel == "electric":
+            a.kwh_100 = est[1]
+        else:
+            a.l_100 = est[1]
+    elif a.kg is not None:
+        more("--kg is not used: a consumption figure was given, and that beats the model")
     if a.kwh_100:
         kwh = dist * a.kwh_100 / 100.0
-        rec("ENERGY", "%s kWh at %s kWh/100 km [derived]" % (trim(kwh, 1), trim(a.kwh_100, 1)))
+        rec("ENERGY", "%s kWh at %s kWh/100 km [%s]" % (trim(kwh, 1), trim(a.kwh_100, 1), tag))
         if a.price:
             cost = kwh * a.price
             rec("COST", "%s at %s per kWh%s" % (num(cost, 2), trim(a.price, 2), "" if people == 1 else ", %s each for %d" % (num(cost / people, 2), people)))
         if a.grid_co2 is not None:
             rec("CO2", "about %s kg at %s g per kWh of grid power [as given]" % (trim(kwh * a.grid_co2 / 1000.0, 1), trim(a.grid_co2, 0)))
+        if est:
+            rec("NEXT", "a real trip uses more than a steady road does, and an official figure beats this model: " + look_up)
         return
+    if a.fuel == "electric":
+        die("an electric car's consumption is --kwh-100")
     if a.mpg_us:
         l100 = 100.0 * L_PER_GAL_US / (a.mpg_us * KM_PER_MI)
     elif a.mpg_uk:
@@ -223,7 +297,7 @@ def cmd_fuel(a):
     else:
         l100 = a.l_100
     litres = dist * l100 / 100.0
-    rec("FUEL", "%s l of %s at %s l/100 km [derived]" % (trim(litres, 1), a.fuel, trim(l100, 1)))
+    rec("FUEL", "%s l of %s at %s l/100 km [%s]" % (trim(litres, 1), a.fuel, trim(l100, 1), tag))
     if a.price:
         cost = litres * a.price
         rec("COST", "%s at %s per litre%s" % (num(cost, 2), trim(a.price, 2), "" if people == 1 else ", %s each for %d" % (num(cost / people, 2), people)))
@@ -233,6 +307,8 @@ def cmd_fuel(a):
     if a.tank:
         rec("TANK", "%s l goes ~%s km; this trip takes %s tank%s" % (
             trim(a.tank, 0), num(a.tank / l100 * 100.0), trim(litres / a.tank, 1), "" if abs(litres / a.tank - 1) < 0.05 else "s"))
+    if est:
+        rec("NEXT", "a real trip uses more than a steady road does, and an official figure beats this model: " + look_up)
 
 
 def register(sub):
@@ -275,14 +351,24 @@ def register(sub):
 
     p = command(sub, "energy", "fuel", cmd_fuel, "fuel or energy for a trip, its cost, the split between people, and CO2",
                 ["fuel --distance 342 --l-100 6.5 --price 6.49 --people 2", "fuel --distance 120 --mpg-us 32 --return",
-                 "fuel --distance 342 --kwh-100 18 --price 1.2"])
+                 "fuel --distance 342 --kwh-100 18 --price 1.2",
+                 'fuel --distance 342 --l-100 4.6 --fuel diesel --car "Skoda Octavia 2019 1.6 TDI" --source "WLTP combined, the maker\'s data sheet"',
+                 'fuel --distance 342 --kg 1450 --fuel diesel --speed 110 --car "a 2015 estate, 1.6 diesel"'])
     p.add_argument("--distance", type=float, required=True, help="one-way km")
     p.add_argument("--return", dest="ret", action="store_true", help="there and back")
     p.add_argument("--l-100", type=float, help="litres per 100 km")
     p.add_argument("--mpg-us", type=float, help="miles per US gallon")
     p.add_argument("--mpg-uk", type=float, help="miles per imperial gallon")
     p.add_argument("--kwh-100", type=float, help="electric: kWh per 100 km")
-    p.add_argument("--fuel", choices=sorted(CO2_KG_PER_L), default="petrol")
+    p.add_argument("--fuel", choices=FUELS, default="petrol")
+    p.add_argument("--car", help="whose car this is, or its make, model and year: a label on the record")
+    p.add_argument("--source", help="where the consumption figure came from: it is then tagged as checked")
+    p.add_argument("--kg", type=float, help="no figure to hand: the mass as it drives, kg, for a rough model at a steady speed")
+    p.add_argument("--speed", type=float, default=90.0, help="with --kg: the steady speed, km/h (default 90)")
+    p.add_argument("--cd", type=float, default=0.30, help="with --kg: drag coefficient (default 0.30)")
+    p.add_argument("--area", type=float, default=2.2, help="with --kg: frontal area, m2 (default 2.2)")
+    p.add_argument("--cda", type=float, help="with --kg: drag area Cd x A, m2 (instead of --cd and --area)")
+    p.add_argument("--crr", type=float, default=0.012, help="with --kg: rolling resistance coefficient (default 0.012)")
     p.add_argument("--price", type=float, help="price per litre (or per kWh)")
     p.add_argument("--people", type=int, default=1, help="split the cost between this many")
     p.add_argument("--tank", type=float, help="tank size, litres")

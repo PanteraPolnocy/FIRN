@@ -24,6 +24,10 @@ Events, applied in order:
   keen=low:3  keen=high:1.8 the Keen for that many seconds (4 at most): range, its heat, and silent running on the high setting
   ram=wood@40  ram=brick@70 he drives through it: a heavy hit on the front face, or 5 km on the Veil if it is up there
                             (ram=reinforced:40@95 gives a thickness in cm; the ram tool lists what he goes through)
+  eject=driver@5            an ejection seat throws (driver, passenger, rear-left, rear-right): a thief at a crawl; add
+                            :save to throw someone clear at any speed, or :order for a passenger on the driver's word
+  out=keen                  behind a hit marked EXPOSED, one fitted system on that face is out until the bay: name it
+  bay                       back in the bay: frame marks cleared, fitted systems restored, smoke refilled
   km=400  heat=90  charge=300   set by hand: a range cap, a warm start, a recharge the story grants
 """
 import re
@@ -38,8 +42,17 @@ HIT_KINDS = {"shot": "shot", "shell": "shot", "bullet": "shot", "ram": "shot",
              "blast": "blast", "explosion": "blast", "charge": "blast", "mine": "blast",
              "beam": "beam", "laser": "beam",
              "gun": "gun", "maingun": "gun", "tank": "gun",
+             "heavier": "heavier", "artillery": "heavier", "missile": "heavier", "atgm": "heavier", "bomb": "heavier",
              "hand": "hand", "arrow": "hand", "bolt": "hand", "spear": "hand", "blade": "hand", "club": "hand", "hammer": "hand",
              "pierce": "hand", "cut": "hand", "crush": "hand", "melee": "hand"}
+# fitted systems a hit can take, and the faces they sit on where the canon says so (None: any face).
+# The maker's ruling: only behind a hit the ledger marks EXPOSED, one system on that face, until the bay.
+KIT = {"keen": ("the Keen", ("front",)), "smoke": ("the smoke screen", ("left", "right")),
+       "anchors": ("the sill anchors", ("left", "right")), "squall": ("the Squall", ("under",)),
+       "spike": ("the signature spike", None), "grapple": ("the grapple", None), "cameras": ("the cameras", None),
+       "thermal": ("the thermal imager", None), "radar": ("the radar", None), "lidar": ("the lidar", None),
+       "microphones": ("the microphone array", None), "receiver": ("the receiver", None)}
+SEATS = ("driver", "passenger", "rear-left", "rear-right")
 OPPOSITE = {"front": "rear", "rear": "front", "left": "right", "right": "left", "top": "under", "under": "top"}
 VERSION_TAG = "F2"
 
@@ -69,6 +82,11 @@ class Ledger:
         self.wet_until = 0.0        # after wading, a struck Rime patch re-cools slower until this time
         self.keen_cfg, self.ram_cfg = lore["keen"], lore["ram"]
         self.keen_heat, self.keen_at = 0.0, 0.0     # seconds of burst the Keen had to shed, and when that was true
+        self.frame = 0              # marks on his frame from the heaviest breaches; the bay mends them
+        self.exposed = []           # faces with an EXPOSED hit that no lost system has been named for yet
+        self.out = []               # fitted systems out until the bay
+        self.eject_cfg = lore["eject"]
+        self.seats = {}             # ejection seats that have thrown: seat -> when it is armed again
         self.full_km = float(lore["chassis"]["range_km"])
         self.t = 0.0
         self.km = self.full_km
@@ -100,7 +118,12 @@ class Ledger:
             + (["gun=%d" % self.gun] if self.gun else []) + (["mend=" + trim(self.mend_left, 1)] if self.mend_left > 0 else [])
             + (["spent=" + "+".join("%s@%s" % (f, trim(u, 1)) for f, u in sorted(self.spent.items()))] if self.spent else [])
             + (["wet=" + trim(self.wet_until, 1)] if self.wet_until > self.t else [])
-            + (["keen=%s@%s" % (trim(self.keen_heat, 2), trim(self.keen_at, 2))] if self.keen_warm() > 1e-9 else []))
+            + (["keen=%s@%s" % (trim(self.keen_heat, 2), trim(self.keen_at, 2))] if self.keen_warm() > 1e-9 else [])
+            + (["fr=%d" % self.frame] if self.frame else [])
+            + (["xp=" + "+".join(self.exposed)] if self.exposed else [])
+            + (["out=" + "+".join(self.out)] if self.out else [])
+            + (["ej=" + "+".join("%s@%s" % (k, trim(u, 1)) for k, u in sorted(self.seats.items()) if u > self.t)]
+               if any(u > self.t for u in self.seats.values()) else []))
 
     def keen_warm(self):
         """Seconds of burst the Keen still has to shed: a full burst cools in cool_s, a shorter one in proportion."""
@@ -153,6 +176,18 @@ class Ledger:
             if "keen" in kv:
                 heat, at = kv["keen"].split("@")
                 self.keen_heat, self.keen_at = float(heat), float(at)
+            self.frame = int(kv.get("fr", "0"))
+            self.exposed = [f for f in kv.get("xp", "").split("+") if f]
+            self.out = [n for n in kv.get("out", "").split("+") if n]
+            if any(f not in FACES for f in self.exposed) or any(n not in KIT for n in self.out):
+                raise ValueError("kit")
+            self.seats = {}
+            for item in kv.get("ej", "").split("+"):
+                if item:
+                    seat, until = item.split("@")
+                    if seat not in SEATS:
+                        raise ValueError("seat")
+                    self.seats[seat] = float(until)
         except (KeyError, ValueError):
             die("the ledger state token is damaged; paste the STATE line exactly as printed")
         if self.veil != "off" and self.veil != "full" and self.veil.split(":")[-1] not in FACES:
@@ -306,14 +341,14 @@ class Ledger:
     def hit(self, spec):
         parts = spec.lower().split(":")
         if len(parts) < 2 or parts[0] not in FACES or parts[1] not in ("heavy", "light"):
-            die("hit=FACE:heavy or hit=FACE:light, then a kind (shot, blast, beam, hand) and :surprise if it was not seen coming "
+            die("hit=FACE:heavy or hit=FACE:light, then a kind (shot, blast, beam, hand, gun, heavier) and :surprise if it was not seen coming "
                 "(faces: %s)" % ", ".join(FACES))
         face, weight = parts[0], parts[1]
         extra = parts[2:]
         surprise = "surprise" in extra
         kinds = [HIT_KINDS[x] for x in extra if x in HIT_KINDS]
         if len(kinds) > 1 or any(x != "surprise" and x not in HIT_KINDS for x in extra):
-            die("after heavy or light comes one kind of hit (shot, blast, beam, hand) and, if it was not seen coming, :surprise")
+            die("after heavy or light comes one kind of hit (shot, blast, beam, hand, gun, heavier) and, if it was not seen coming, :surprise")
         kind = kinds[0] if kinds else "shot"
         window = self.cfg["weak_window_s"]
         covered = self.veil == "full" or self.veil == "partial:" + face
@@ -324,8 +359,8 @@ class Ledger:
         if kind == "blast":
             self._blast(face, weight, covered, veil_txt)
             return
-        if kind == "gun":
-            self._gun(face, covered, veil_txt, surprise)
+        if kind in ("gun", "heavier"):
+            self._gun(face, covered, veil_txt, surprise, kind == "heavier")
             return
         aside = ""
         if kind == "hand":
@@ -368,11 +403,84 @@ class Ledger:
         if weak and not covered:
             verdict += " [known weakness]"
         self.say("", "-> " + verdict + ". The ruleset decides what that means in damage.")
+        if verdict.startswith("EXPOSED"):
+            self._kit(face)
 
-    def _gun(self, face, covered, veil_txt, surprise):
+    def _kit(self, face):
+        """Behind an EXPOSED hit one fitted system on that face is lost until the bay; the driver or the brief names which."""
+        self.exposed.append(face)
+        self.say("", "kit: one fitted system on the %s face is out until the bay [lore]. The driver or the brief names which: "
+                     "out=NAME books it (%s)" % (face, ", ".join(sorted(KIT))))
+
+    def lose(self, val):
+        name = val.lower()
+        if name not in KIT:
+            die("out=NAME, one of: %s" % ", ".join(sorted(KIT)))
+        label, faces = KIT[name]
+        if name in self.out:
+            self.say("OUT", "%s is already out until the bay" % label)
+            return
+        waiting = [f for f in self.exposed if faces is None or f in faces]
+        if not waiting:
+            if not self.exposed:
+                self.say("OUT", "REFUSED: kit is lost only behind a hit the ledger marked EXPOSED, and none is waiting [lore]")
+            else:
+                self.say("OUT", "REFUSED: %s sits on the %s; the EXPOSED hit waiting is on the %s [lore]" % (
+                    label, " or the ".join(faces), " and the ".join(self.exposed)))
+            return
+        self.exposed.remove(waiting[0])
+        self.out.append(name)
+        self.say("OUT", "%s is out until the bay, behind the EXPOSED hit on the %s face [lore]" % (label, waiting[0]))
+
+    def throw(self, val):
+        """An ejection seat. A thief or an attacker at a crawl, on his own call; anyone else only to save them, at any speed;
+        a passenger on the driver's order. The roof panel opens, the seat re-arms after a while, and it costs no range."""
+        cfg = self.eject_cfg
+        usage = "eject=SEAT, eject=SEAT@KMH or eject=SEAT@KMH:save (seats: %s; why: thief, save, order)" % ", ".join(SEATS)
+        spec, _, why = val.lower().partition(":")
+        seat, _, sp = spec.partition("@")
+        why = why or "thief"
+        if seat not in SEATS or why not in ("thief", "save", "order"):
+            die(usage)
+        try:
+            kmh = float(sp) if sp else None
+        except ValueError:
+            die(usage)
+        head = "t=%s the %s seat%s" % (clock(self.t), seat, "" if kmh is None else " at %s km/h" % trim(kmh, 0))
+        if why == "order" and seat == "driver":
+            self.say("EJECT", "%s: REFUSED: on the driver's order he puts a passenger out, never the driver herself [lore]" % head)
+            return
+        if why != "save" and kmh is not None and kmh > cfg["thief_kmh"] + 1e-9:
+            self.say("EJECT", "%s: REFUSED: over %d km/h he throws someone only to save them (%s:save), and says so first [lore]" % (
+                head, cfg["thief_kmh"], spec))
+            return
+        if self.seats.get(seat, 0.0) > self.t + 1e-9:
+            self.say("EJECT", "%s: REFUSED: that seat has thrown and is not armed again before t=%s [lore]" % (head, clock(self.seats[seat])))
+            return
+        self.seats[seat] = self.t + cfg["rearm_s"]
+        reason = {"thief": "a thief or an attacker, on his own call", "order": "a passenger, on the driver's order",
+                  "save": "to save them, because staying aboard is worse: he says so first"}[why]
+        self.say("EJECT", "%s: thrown %d m up and %d m clear at about %d g - %s; armed again at t=%s [lore]" % (
+            head, cfg["up_m"], cfg["clear_m"], cfg["g"], reason, clock(self.seats[seat])))
+        self.say("", "unhurt on grass, water or a soft verge, bruised on tarmac: he picks the spot. The roof panel opens, so the cell "
+                     "is unsealed for those seconds%s [lore]" % (
+                         "" if why != "save" or seat != "driver" else "; never his driver against her word, while she can give it"))
+        if kmh is None and why != "save":
+            self.say("", "at %d km/h or less: faster than that, only to save the person thrown [lore]" % cfg["thief_kmh"])
+
+    def bay(self, val):
+        if val:
+            die("bay takes no value: it puts him back in the bay")
+        self.frame, self.exposed, self.out = 0, [], []
+        self.smoke, self.smoke_left = False, int(self.smoke_cfg["screens"])
+        self.say("BAY", "back in the bay: frame marks cleared, fitted systems restored, smoke refilled [by hand]")
+
+    def _gun(self, face, covered, veil_txt, surprise, heavier=False):
         """A tank's main gun. The Lattice holds two such rounds in all, until mended. After that: the Veil stops one and
-        trips at once; without it a stacked face stops one and is spent, with only the Cell behind it, until it re-cools."""
+        trips at once; without it a stacked face stops one and is spent, with only the Cell behind it, until it re-cools.
+        Anything heavier, by a direct hit, spends both rounds at once: fresh, he survives one."""
         rounds = int(self.gun_cfg["rounds"])
+        need = int(self.gun_cfg["heavier_rounds"]) if heavier else 1
         limit = float(self.cfg["veil_overheat_s"])
         was_soft = face in self.rime
         if was_soft:
@@ -380,14 +488,17 @@ class Ledger:
         else:
             self.rime[face] = self.t + self.recool()
             rime_txt = "bloomed and spread the load; soft until t=%s" % clock(self.rime[face])
-        self.say("HIT", "t=%s %s main-gun round%s" % (clock(self.t), face, " (surprise)" if surprise else ""))
-        if self.gun < rounds:
-            self.gun += 1
-            self.say("", "veil: %s | lattice: holds, round %d of the %d it takes before mending | rime: %s | cell: holding" % (
-                veil_txt, self.gun, rounds, rime_txt))
+        self.say("HIT", "t=%s %s %s%s" % (clock(self.t), face, "direct hit, heavier than a main gun" if heavier else "main-gun round",
+                                          " (surprise)" if surprise else ""))
+        if rounds - self.gun >= need:
+            self.gun += need
+            self.say("", "veil: %s | lattice: holds, %s | rime: %s | cell: holding" % (
+                veil_txt, "at the price of the %d rounds it takes before mending" % rounds if heavier
+                else "round %d of the %d it takes before mending" % (self.gun, rounds), rime_txt))
             self.say("", "-> held [lore]. The ruleset decides what that means in damage. 'mend' gives a round back: %d min and %d km, "
                          "Veil down" % (self.gun_cfg["mend_min"], self.gun_cfg["mend_km"]))
             return
+        self.gun = rounds           # whatever was left of them goes with a hit they could not hold
         if covered:
             self.heat, self.veil, self.lock = limit, "off", True
             self.say("", "veil: stops it, and the emitters trip at once: Veil down, locked until fully cool | lattice: its %d rounds "
@@ -406,6 +517,7 @@ class Ledger:
             self.say("", "veil: %s | lattice: its %d rounds are spent, and this face cannot stack%s | rime: %s | cell: holding" % (
                 veil_txt, rounds, " (no warning)" if surprise else "", rime_txt))
             self.say("", "-> EXPOSED: only the cell stands behind this round. The ruleset decides what that means in damage.")
+            self._kit(face)
 
     def mend(self, val):
         """Nanotech repair: one main-gun round's worth of Lattice for range and time. It does not work under the Veil."""
@@ -461,6 +573,8 @@ class Ledger:
         else:
             verdict = "EXPOSED: rime soft, nothing to stack against, no Veil on this face - only the cell stands behind this blast"
         self.say("", "-> " + verdict + ". The ruleset decides what that means in damage.")
+        if verdict.startswith("EXPOSED"):
+            self._kit(face)
 
     def _beam(self, face, weight, covered, veil_txt):
         """A beam arrives with no warning and works by staying on one spot: the Veil scatters it, or the Rime drinks it once."""
@@ -482,6 +596,7 @@ class Ledger:
                 veil_txt, scales_txt, clock(self.rime[face])))
             self.say("", "-> EXPOSED: a beam on a face that is already soft - only the cell stands behind it. "
                          "The ruleset decides what that means in damage.")
+            self._kit(face)
             return
         until = self.t + self.recool()
         self.rime[face] = until
@@ -551,6 +666,8 @@ class Ledger:
                 self.say("SMOKE", "cleared: that screen is spent, %d of %d left" % (self.smoke_left, cfg["screens"]) if self.smoke
                          else "none out")
                 self.smoke = False
+            elif "smoke" in self.out:
+                self.say("SMOKE", "REFUSED: the smoke screen is out until the bay [lore]")
             elif self.smoke:
                 self.say("SMOKE", "already out until t=%s" % clock(self.smoke_until))
             elif self.smoke_left <= 0:
@@ -570,6 +687,12 @@ class Ledger:
             self.keen(val)
         elif key == "ram":
             self.ram(val)
+        elif key == "out":
+            self.lose(val)
+        elif key == "bay":
+            self.bay(val)
+        elif key == "eject":
+            self.throw(val)
         elif key == "mend":
             self.mend(val)
         elif key == "wade":
@@ -593,7 +716,7 @@ class Ledger:
                 self.say("CHARGE", "+%s km granted by the story: range %s km [by hand]" % (trim(x, 1), num(self.km, 1)))
         else:
             die("unknown ledger event '%s'. Events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= "
-                "spike keen= ram= mend wade km= heat= charge=" % event)
+                "spike keen= ram= eject= out= bay mend wade km= heat= charge=" % event)
 
     def feed_armour(self, val):
         """Charge a docked armour from the bank. val is how many full charges: 1 is one armour from empty."""
@@ -629,6 +752,9 @@ class Ledger:
         if km <= 0:
             die("squall= takes the cost of the burst in km of range, more than 0 (the jump tool gives it)")
         cfg = self.squall_cfg
+        if "squall" in self.out:
+            self.say("SQUALL", "REFUSED: the Squall is out until the bay [lore]")
+            return
         if self.t >= self.squall_last + cfg["again_s"] - 1e-9:
             self.squall_left = int(cfg["bursts"])
         if self.squall_left <= 0:
@@ -656,6 +782,9 @@ class Ledger:
         if val:
             die("spike takes no value: it fires once")
         cfg = self.spike_cfg
+        if "spike" in self.out:
+            self.say("SPIKE", "REFUSED: the signature spike is out until the bay [lore]")
+            return
         if self.t < self.spike_ready - 1e-9:
             self.say("SPIKE", "REFUSED: the last one fired at t=%s and the next is not ready before t=%s" % (
                 clock(self.spike_ready - cfg["again_s"]), clock(self.spike_ready)))
@@ -686,6 +815,9 @@ class Ledger:
             die("keen=low:SECONDS or keen=high:SECONDS, %s s at most" % trim(burst, 0))
         if secs <= 0:
             die("a burst lasts more than 0 s")
+        if "keen" in self.out:
+            self.say("KEEN", "REFUSED: the Keen is out until the bay [lore]")
+            return
         warm = self.keen_warm()
         room = burst - warm
         full_at = self.t + warm * cfg["cool_s"] / burst
@@ -741,6 +873,11 @@ class Ledger:
             if plan["result"] == "stop":
                 self.say("", "what stopping against it does to him and to those aboard has no figure: the driver rules")
         elif plan["km"]:
+            marks, hard = int(self.ram_cfg["frame_marks"]), int(self.ram_cfg["aboard_g"])
+            if plan["frame"] and self.frame >= marks:
+                self.say("RAM", "%s: REFUSED: %d marks are on his frame, and with those he does no more of the heaviest breaches "
+                                "until the bay [lore]" % (head, marks))
+                return
             if plan["km"] > self.km + 1e-9:
                 self.say("RAM", "%s: REFUSED: the breach needs %s km of range for the Veil and %s km is left" % (
                     head, trim(plan["km"], 1), num(self.km, 1)))
@@ -750,12 +887,21 @@ class Ledger:
             self.say("RAM", "%s: through on the Veil, which holds: -%s km: range %s -> %s km; the front face stays fresh [lore]" % (
                 head, trim(plan["km"], 1), num(before, 1), num(self.km, 1)))
             if plan["frame"]:
-                self.say("", "it damages his frame [maker]: how much has no figure, the driver rules")
+                self.frame += 1
+                self.say("", "frame: mark %d of the %d he takes [lore]%s" % (
+                    self.frame, marks, ": no more of the heaviest breaches, and no landing over %d g, until the bay" % hard
+                    if self.frame >= marks else "; the bay mends them, his nanotech cannot"))
         else:
             self.say("RAM", "%s: through, as one heavy hit on the front face [lore]" % head)
             self.hit("front:heavy:ram")
-        if kmh is None and plan["result"] == "through":
-            self.say("", "it needs %d km/h at least [maker]" % plan["need"])
+            if plan["spent"]:
+                self.spent["front"] = self.rime.get("front", self.t + self.recool())
+                self.say("", "the front face is spent by it: only the cell stands behind it until t=%s [lore]" % clock(self.spent["front"]))
+        if plan["result"] == "through":
+            self.say("", "aboard, strapped in: as hard as a %d g landing, so he warns the driver first, as before a hard jump [lore]" % (
+                self.ram_cfg["aboard_g"]) if plan["aboard"] == "warn" else "aboard, strapped in: a jolt, and nobody is hurt [lore]")
+            if kmh is None:
+                self.say("", "it needs %d km/h at least [maker]" % plan["need"])
 
     def summary(self):
         limit = self.cfg["veil_overheat_s"]
@@ -772,6 +918,12 @@ class Ledger:
             text += " | mending, %s to go" % clock(self.mend_left)
         if self.keen_warm() > 1e-9:
             text += " | Keen cooling, %s s of burst ready" % trim(self.keen_cfg["burst_s"] - self.keen_warm(), 1)
+        if self.frame:
+            text += " | frame marks %d/%d" % (self.frame, self.ram_cfg["frame_marks"])
+        if self.out:
+            text += " | out until the bay: %s" % ", ".join(KIT[n][0] for n in self.out)
+        if self.exposed:
+            text += " | EXPOSED hits with no system named yet: %s" % ", ".join(self.exposed)
         return text
 
     def warnings(self):
@@ -816,9 +968,9 @@ def cmd_lattice(a):
     rec("STATE", led.token())
     if fresh and not a.events:
         rec("NEXT", "pass that STATE back with --state and add events: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= "
-                    "armour= squall= spike keen= ram= mend wade")
-        rec("HITS", "hit=FACE:heavy|light, then the kind: shot (default), blast, beam, hand or gun (a tank's main gun), and :surprise if "
-                    "it was not seen coming [maker]")
+                    "armour= squall= spike keen= ram= eject= out= bay mend wade")
+        rec("HITS", "hit=FACE:heavy|light, then the kind: shot (default), blast, beam, hand, gun (a tank's main gun) or heavier (a "
+                    "direct hit from artillery, a missile, a bomb), and :surprise if it was not seen coming [maker]")
         per = led.cfg.get("cradle_charge_km")
         rec("RULES", "Veil %s km/min full, %s of that for one face; emitters trip at %d s of heat; Rime re-cools in %d-%d s; "
                      "cell air %d min; a docked armour charged from empty costs %s [lore]" % (
@@ -835,7 +987,7 @@ def register(sub):
                  "lattice --state F2/... armour=1", "lattice hit=under:heavy:blast wait=20 hit=front:light:beam smoke=on hit=left:heavy:beam"])
     p.add_argument("events", nargs="*",
                    help="events in order: wait= drive= veil= cost= hit= seal unseal silent= smoke= temp= armour= squall= spike "
-                        "keen= ram= mend wade km= heat= charge=")
+                        "keen= ram= eject= out= bay mend wade km= heat= charge=")
     p.add_argument("--state", help="the STATE token from the previous turn (omit to start a new ledger)")
     p.add_argument("--km", type=float, help="start or override: range left, km")
     p.add_argument("--heat", type=float, help="start or override: emitter heat, s")

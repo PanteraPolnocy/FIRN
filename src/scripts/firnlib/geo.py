@@ -506,7 +506,7 @@ def land_note(p1, p2, mode, checked=False, via="auto"):
         if checked:
             return plan["key"], "%s. The checked figure for this leg is taken to hold the crossing" % plan["why"], 0.0
         up = lambda text: text[0].upper() + text[1:]
-        ask = ". %s: 'route' plans either, with the --via named" % up(plan["ask"]) if plan.get("ask") else ""
+        ask = ". %s" % up(plan["ask"]) if plan.get("ask") else ""
         return plan["key"], "%s. %s, in the total. %s%s" % (plan["why"], up(plan["summary"]), up(plan["small"]), ask), \
             plan["hours"] - plan["wheel_h"]
     where = land_phrases(a, b)
@@ -1060,9 +1060,10 @@ def cmd_trip(a):
     if tired:
         from . import fatigue
         low_win = fatigue.parse_window(a.low_hours or fatigue.LOW_HOURS)
+    home_via = a.via if a.home_mode in crossing.DRIVEN else "auto"
     if a.home:
         hp = parse_point(a.home)
-        s, km, hours, tag, _ = estimate_leg(hp, first["p1"], a.home_mode)
+        s, km, hours, tag, _ = estimate_leg(hp, first["p1"], a.home_mode, via=home_via)
         checkin = a.checkin if a.checkin is not None else (120 if first["mode"] == "air" else 20 if first["mode"] == "rail" else 0)
         be_there = chrono.add(first["dep"], -checkin * 60)
         leave = chrono.to_utc(chrono.add(be_there, -(hours * 3600 + a.margin * 60))).astimezone(place_tz(hp, fallback))
@@ -1070,7 +1071,7 @@ def cmd_trip(a):
         more("%s %s%s km, %s [%s] + %d min margin; be at %s by %s (%d min before departure)" % (
             _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag, a.margin,
             first["p1"][0], be_there.strftime("%H:%M"), checkin))
-        say_land(hp, first["p1"], a.home_mode, tag, "the way to %s" % first["p1"][0])
+        say_land(hp, first["p1"], a.home_mode, tag, "the way to %s" % first["p1"][0], home_via)
         door_start = chrono.to_utc(leave)
         set_off, origin, body_tz = leave, "you left %s" % hp[0], leave.tzinfo
         if tired and a.home_mode in fatigue.DRIVEN:
@@ -1141,14 +1142,14 @@ def cmd_trip(a):
         more("%s  (%s time)" % (chrono.fmt_dt(ref_arr), chrono.zone_label(ref_name).lower()))
     if a.onward:
         op = parse_point(a.onward)
-        s, km, hours, tag, _ = estimate_leg(last["p2"], op, a.home_mode)
+        s, km, hours, tag, _ = estimate_leg(last["p2"], op, a.home_mode, via=home_via)
         exit_min = a.exit if a.exit is not None else (45 if last["mode"] == "air" else 10 if last["mode"] == "rail" else 0)
         onward_tz = place_tz(op, (last["p2"][3] or {}).get("tz") or fallback)
         there = chrono.to_utc(chrono.add(last["arr"], exit_min * 60 + hours * 3600)).astimezone(onward_tz)
         rec("ONWARD", "%s  %s" % (chrono.fmt_dt(there), op[0]))
         more("%d min to get out + %s %s%s km, %s [%s]" % (
             exit_min, _MODE_WORD.get(a.home_mode, a.home_mode), "~" if tag == "estimate" else "", num(km), fmt_hm(hours), tag))
-        say_land(last["p2"], op, a.home_mode, tag, "onward to %s" % op[0])
+        say_land(last["p2"], op, a.home_mode, tag, "onward to %s" % op[0], home_via)
         door_end = chrono.to_utc(there)
         if tired and a.home_mode in fatigue.DRIVEN:
             drives.append(("the onward drive to %s" % op[0], chrono.add(there, -hours * 3600), there))
@@ -1230,6 +1231,8 @@ def register(sub):
     p.add_argument("--date", help="date of the first departure when the leg gives none (default today)")
     p.add_argument("--home", help="start from here: adds the drive and a leave-by time")
     p.add_argument("--home-mode", default="car", choices=sorted(MODES), help="mode for the home and onward legs (default car)")
+    p.add_argument("--via", default="auto", choices=crossing.VIAS,
+                   help="the home and onward legs across water with a car: auto (the quicker way), sea (the car comes along) or air")
     p.add_argument("--checkin", type=int, help="minutes to be there before the first departure (fly 120, rail 20)")
     p.add_argument("--margin", type=int, default=15, help="extra minutes on the home leg (default 15)")
     p.add_argument("--onward", help="finish here: adds the ground leg after the last arrival")

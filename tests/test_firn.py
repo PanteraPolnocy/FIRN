@@ -632,7 +632,7 @@ class GroundTests(unittest.TestCase):
         self.assertIn(" door to door, in the total. As if flown direct at 800 km/h: ", out)
         # the other way is named in the same line, since these tools take no --via
         self.assertIn("Does the car come along? With it: by ferry, Dublin to Holyhead, ", out)
-        self.assertIn(" The quicker leads here: 'route' plans either, with the --via named.", out)
+        self.assertIn(" (--via air). The quicker leads here.", out)
         self.assertIn("NO ROAD    Ben: Paris is on the mainland of Europe, Asia and Africa and London is on Great Britain.", out)
         self.assertIn("With it: by shuttle, Calais to Folkestone, ", out)
         self.assertIn(" on the move, ", field(out, "BEN"))
@@ -3450,7 +3450,7 @@ class SecondRoundTests(unittest.TestCase):
         soft = ("grapple", "--mass", "2500", "--slope", "90", "--ground", "soft")
         self.assertTrue(field(ok(*soft), "FOOTING").startswith("HE SLIDES: 2,500 kg, and on soft ground he holds 1,500 kg [lore]."))
         self.assertTrue(field(ok(*soft, "--anchors"), "FOOTING").startswith(
-            "anchored: the sill anchors bite and he holds the full 3,000 kg, pinned until they lift."))
+            "anchored: the sill anchors bite in 2 s and he holds the full 3,000 kg, pinned until they lift, which takes 5 s."))
         self.assertEqual(field(ok("grapple", "--mass", "2500", "--slope", "90"), "FOOTING"),
                          "he holds his ground: 2,500 kg of the 3,000 kg he holds on hard ground [lore]")
         self.assertEqual(field(ok("grapple", "--mass", "1200", "--slope", "90", "--ground", "soft"), "FOOTING"),
@@ -3565,7 +3565,7 @@ class KeenTests(unittest.TestCase):
         self.assertNotIn("No weapons are fitted by default", skill)
         fit = ok("record", "--fit")
         self.assertIn("FITTED     the Keen: a phased ultrasonic array in the lower front apron, his one fitted weapon [maker]", fit)
-        self.assertIn("UNKNOWN    whether a hit can knock out a fitted system, the Keen or a sensor - no figure", fit)
+        self.assertNotIn("whether a hit can knock out a fitted system", fit)
         self.assertIn("WEAPONS  one fitted, the Keen; anything else is a mission module on the brief", ok("record", "--firn"))
         with open(os.path.join(ROOT, "src", "playbooks", "chassis.md"), encoding="utf-8") as f:
             self.assertIn("## The Keen", f.read())
@@ -3582,7 +3582,8 @@ class RamTests(unittest.TestCase):
         self.assertEqual(field(out, "RAM"), "wood at 40 km/h, the Veil down")
         self.assertEqual(field(out, "THROUGH"), "yes: it needs 30 km/h at least, and he has 40 [maker]")
         self.assertEqual(field(out, "COST"), "one heavy hit on his front face: the Rime there is soft until it re-cools [lore]")
-        self.assertEqual(field(out, "ABOARD"), "what a breach does to the people inside has no figure: the driver rules")
+        self.assertEqual(field(out, "ABOARD"), "strapped in: a jolt, and nobody is hurt [maker]")
+        self.assertNotIn("WARNING", out)
         self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... ram=wood@40")
         out = ok("ram", "--through", "brick", "--speed", "70", "--veil")
         self.assertEqual(field(out, "RAM"), "a brick or block wall at 70 km/h, armour up: the Veil on his front face, the Scales stacked "
@@ -3591,10 +3592,14 @@ class RamTests(unittest.TestCase):
                                                       "behind it stays fresh [lore]. The Veil's own 7.5 km a minute runs besides"))
         self.assertEqual(field(out, "LEDGER"), "book it in a sim with: lattice --state ... veil=partial:front ram=brick@70")
         self.assertNotIn("FRAME", out)
-        # the heaviest he can breach cost him something no figure covers
+        # the heaviest he can breach leave a mark on his frame, and are as hard on those aboard as a 12 g landing
         for args in (("--through", "reinforced", "--thick", "40"), ("--through", "lorry")):
             out = ok("ram", *args, "--speed", "95", "--veil")
-            self.assertEqual(field(out, "FRAME"), "it damages his frame [maker]: how much has no figure, the driver rules", args)
+            self.assertEqual(field(out, "FRAME"), "a mark on his frame [maker]: he takes 3 before he refuses the heaviest breaches and "
+                             "any landing over 12 g. The bay mends them; his nanotech cannot", args)
+            self.assertEqual(field(out, "ABOARD"), "strapped in, this counts like a 12 g landing [maker]", args)
+            self.assertTrue(field(out, "WARNING").startswith("as hard on those aboard as a 12 g landing: he warns the driver before "
+                                                             "the breach, as before a hard jump"), args)
         self.assertNotIn("FRAME", ok("ram", "--through", "reinforced", "--thick", "30", "--speed", "60", "--veil"))
         self.assertEqual(field(ok("ram", "--through", "reinforced", "--thick", "51", "--veil"), "THROUGH"),
                          "no: reinforced concrete over 50 cm stops him, armour up or not [maker]")
@@ -3605,11 +3610,19 @@ class RamTests(unittest.TestCase):
                             (thing, kmh))
         self.assertEqual(field(ok("ram", "--through", "car", "--speed", "60", "--veil"), "THROUGH"),
                          "no: at 60 km/h he is too slow: this needs 90 at least [maker]. What happens below that is the brief's to rule")
-        # with the Veil down a wall or a vehicle has no figure, and he says so rather than guess
-        out = ok("ram", "--through", "brick", "--speed", "70")
-        self.assertTrue(field(out, "THROUGH").startswith("no figure: with the Veil down there is none: his body is stronger than an "
-                                                         "ordinary SUV's, and how much stronger is the driver's to rule [maker]."))
-        self.assertNotIn("LEDGER", out)
+        # with the Veil down a wall, a gate or a car still gives way, at the price of the front face; anything heavier stops him
+        for thing, kmh, aboard in (("brick", 70, "jolt"), ("gate", 60, "jolt"), ("car", 95, "12 g")):
+            out = ok("ram", "--through", thing, "--speed", str(kmh))
+            self.assertTrue(field(out, "THROUGH").startswith("yes: "), thing)
+            self.assertEqual(field(out, "COST"), "one heavy hit on his front face, and it spends that face: only the Cell stands behind "
+                             "it until the Rime re-cools [lore]", thing)
+            self.assertIn(aboard, field(out, "ABOARD"), thing)
+        for thing in ("barrier", "van", "lorry"):
+            out = ok("ram", "--through", thing, "--speed", "95")
+            self.assertTrue(field(out, "THROUGH").startswith("no: with the Veil down, road barriers, vans and anything heavier stop "
+                                                             "him [maker]. With the armour up he goes through at "), thing)
+            self.assertNotIn("LEDGER", out)
+        self.assertTrue(field(ok("ram", "--through", "car", "--speed", "70"), "THROUGH").startswith("no: at 70 km/h he is too slow"))
         for thing in ("bunker", "pier", "rock", "tank"):
             for veil in ((), ("--veil",)):
                 self.assertEqual(field(ok("ram", "--through", thing, *veil), "THROUGH"),
@@ -3630,20 +3643,24 @@ class RamTests(unittest.TestCase):
                  "ram=rock", "ram=cardboard")
         self.assertIn("RAM        t=0:00.0 wood at 40 km/h, Veil down: through, as one heavy hit on the front face [lore]", out)
         self.assertIn("rime: bloomed and spread the load; soft until t=1:15.0", out)
-        self.assertIn("RAM        t=0:00.0 a brick or block wall at 70 km/h, Veil down: NO FIGURE: ", out)
+        self.assertIn("aboard, strapped in: a jolt, and nobody is hurt [lore]", out)
+        self.assertIn("RAM        t=0:00.0 a brick or block wall at 70 km/h, Veil down: through, as one heavy hit on the front face [lore]", out)
         self.assertIn("RAM        t=0:00.0 a brick or block wall at 70 km/h, armour up: through on the Veil, which holds: -5 km: range "
                       "1,500.0 -> 1,495.0 km; the front face stays fresh [lore]", out)
         self.assertIn("RAM        t=0:00.0 40 cm of reinforced concrete at 95 km/h, armour up: through on the Veil, which holds: -5 km: "
                       "range 1,495.0 -> 1,490.0 km", out)
-        self.assertIn("\n           it damages his frame [maker]: how much has no figure, the driver rules\n", out)
+        self.assertIn("\n           frame: mark 1 of the 3 he takes [lore]; the bay mends them, his nanotech cannot\n", out)
+        self.assertIn("aboard, strapped in: as hard as a 12 g landing, so he warns the driver first, as before a hard jump [lore]", out)
         self.assertIn("RAM        t=0:00.0 a car at 60 km/h, armour up: NOT THROUGH: at 60 km/h he is too slow", out)
         self.assertIn("RAM        t=0:00.0 rock, armour up: NOT THROUGH: bunker walls, bridge piers, rock and tanks stop him", out)
         self.assertIn("what stopping against it does to him and to those aboard has no figure: the driver rules", out)
         self.assertIn("RAM        t=0:00.0 cardboard, armour up: through, and it costs nothing [lore]", out)
         self.assertIn("range 1,490.0 km", field(out, "LEDGER"))
+        self.assertTrue(field(out, "LEDGER").endswith(" | frame marks 1/3"))
         # a full Veil covers the front as well; one on another face does not
         self.assertIn("armour up: through on the Veil", ok("lattice", "veil=full", "ram=gate@60"))
-        self.assertIn("Veil down: NO FIGURE", ok("lattice", "veil=partial:rear", "ram=gate@60"))
+        self.assertIn("Veil down: NOT THROUGH: with the Veil down, road barriers, vans and anything heavier stop him",
+                      ok("lattice", "veil=partial:rear", "ram=barrier@60"))
         self.assertIn("it needs 30 km/h at least [maker]", ok("lattice", "ram=plastic"))
         self.assertIn("REFUSED: the breach needs 5 km of range for the Veil and 3.0 km is left",
                       ok("lattice", "--km", "3", "veil=partial:front", "ram=brick@70"))
@@ -3746,7 +3763,10 @@ class OwnSkinTests(unittest.TestCase):
     def test_the_ledger_says_what_a_hit_did(self):
         self.assertIn("What a hit did is what the ledger says: you invent no damage to your kit and no percentages.", self.skill)
         with open(os.path.join(ROOT, "src", "playbooks", "sims.md"), encoding="utf-8") as f:
-            self.assertIn("whether a hit can knock out a fitted system has no figure, so you say so and the driver rules", f.read())
+            self.assertIn("Kit is lost only behind a hit the ledger marks EXPOSED: then one system on that face is out until the bay, "
+                          "the driver or the brief names which, and `out=NAME` books it.", f.read())
+        self.assertIn("Kit is lost only behind a hit the ledger marks EXPOSED: one system on that face, out until the bay, named by the "
+                      "driver or the brief [maker].", self.skill)
 
     def test_where_the_toolkit_cannot_run(self):
         self.assertIn("- [by hand] a sum you did yourself where the toolkit could not run (section 11.3)", self.skill)
@@ -3804,6 +3824,300 @@ class SomeoneTests(unittest.TestCase):
         long_reply = "\n".join(["A line of talk."] * 13 + ["[bar: idle]"])
         out = ok("check", "--reply", "--text", long_reply)
         self.assertIn("13 lines of prose: a dozen is too long. Cut it. Figures go in a record block; talk stays plain and short", out)
+
+
+class ThirdRoundTests(unittest.TestCase):
+    """The maker's third round of rulings: what hits and ramming cost him, the anchors, the Cell and the smoke."""
+
+    def test_three_marks_on_the_frame(self):
+        out = ok("lattice", "veil=partial:front", "ram=lorry@95", "ram=lorry@95", "ram=reinforced:40@95", "ram=lorry@95", "ram=brick@70")
+        for n in (1, 2):
+            self.assertIn("frame: mark %d of the 3 he takes [lore]; the bay mends them, his nanotech cannot" % n, out)
+        self.assertIn("frame: mark 3 of the 3 he takes [lore]: no more of the heaviest breaches, and no landing over 12 g, until the bay", out)
+        self.assertIn("a lorry at 95 km/h, armour up: REFUSED: 3 marks are on his frame, and with those he does no more of the heaviest "
+                      "breaches until the bay [lore]", out)
+        # lighter breaches are still his to make
+        self.assertIn("a brick or block wall at 70 km/h, armour up: through on the Veil", out)
+        state = field(out, "STATE")
+        self.assertTrue(state.endswith("/fr=3"))
+        self.assertTrue(field(out, "LEDGER").endswith(" | frame marks 3/3"))
+        out = ok("lattice", "--state", state, "bay", "ram=lorry@95")
+        self.assertIn("BAY        back in the bay: frame marks cleared, fitted systems restored, smoke refilled [by hand]", out)
+        self.assertIn("frame: mark 1 of the 3 he takes", out)
+        self.assertIn("with 3 marks on his frame he does not take a landing over 12 g at all, until the bay [lore]",
+                      ok("jump", "--gap", "30", "--speed", "200", "--drop", "8"))
+        self.assertNotIn("marks on his frame", ok("jump", "--gap", "30", "--speed", "200", "--drop", "5"))      # 11 g
+        self.assertEqual(run("lattice", "bay=1")[0], 2)
+
+    def test_heavier_than_a_main_gun(self):
+        out = ok("lattice", "hit=front:heavy:heavier", "hit=left:heavy:artillery", "veil=full", "hit=rear:heavy:missile")
+        self.assertIn("HIT        t=0:00.0 front direct hit, heavier than a main gun", out)
+        self.assertIn("lattice: holds, at the price of the 2 rounds it takes before mending", out)
+        # after that, the main-gun rule: a stacked face stops one and is spent, the Veil stops one and trips
+        self.assertIn("-> stopped, at the price of the left face: only the cell stands behind it until t=1:15.0 [lore]", out)
+        self.assertIn("veil: stops it, and the emitters trip at once: Veil down, locked until fully cool", out)
+        self.assertTrue(field(out, "LEDGER").endswith(" | main-gun rounds taken 2/2"))
+        # one round already taken: the one left cannot hold a hit that needs two, and goes with it
+        out = ok("lattice", "hit=top:heavy:gun", "hit=front:heavy:bomb")
+        self.assertIn("lattice: its 2 rounds are spent; the stacked face stops this one and is itself spent", out)
+        self.assertTrue(field(out, "STATE").endswith("/gun=2/spent=front@75"))
+        self.assertEqual(core.load_data("lore")["gun"]["heavier_rounds"], 2)
+
+    def test_kit_is_lost_only_behind_an_exposed_hit(self):
+        out = ok("lattice", "hit=front:heavy", "hit=front:heavy:surprise", "out=smoke", "out=keen", "keen=high:2", "out=radar")
+        self.assertIn("-> EXPOSED: scales thin and rime soft", out)
+        self.assertIn("kit: one fitted system on the front face is out until the bay [lore]. The driver or the brief names which: "
+                      "out=NAME books it", out)
+        # the smoke is in the sills, so a hit on the front cannot take it; the Keen is in the front apron
+        self.assertIn("OUT        REFUSED: the smoke screen sits on the left or the right; the EXPOSED hit waiting is on the front [lore]", out)
+        self.assertIn("OUT        the Keen is out until the bay, behind the EXPOSED hit on the front face [lore]", out)
+        self.assertIn("KEEN       REFUSED: the Keen is out until the bay [lore]", out)
+        self.assertIn("OUT        REFUSED: kit is lost only behind a hit the ledger marked EXPOSED, and none is waiting [lore]", out)
+        state = field(out, "STATE")
+        self.assertTrue(state.endswith("/out=keen"))
+        self.assertTrue(field(out, "LEDGER").endswith(" | out until the bay: the Keen"))
+        self.assertIn("KEEN       high setting for 1 s", ok("lattice", "--state", state, "bay", "keen=high:1"))
+        # every way of being EXPOSED says so: a blast, a beam, a main-gun round
+        for events in (("hit=left:heavy:blast", "hit=left:heavy:blast"), ("hit=left:heavy:beam", "hit=left:heavy:beam"),
+                       ("hit=left:heavy:gun", "hit=top:heavy:gun", "hit=left:heavy:gun")):
+            out = ok("lattice", *events, "out=smoke", "smoke=on")
+            self.assertIn("kit: one fitted system on the left face is out until the bay", out, events)
+            self.assertIn("OUT        the smoke screen is out until the bay", out, events)
+            self.assertIn("SMOKE      REFUSED: the smoke screen is out until the bay [lore]", out, events)
+        # a hit that is not EXPOSED takes nothing, and an EXPOSED one waits on the ledger until a system is named
+        self.assertNotIn("kit:", ok("lattice", "hit=front:heavy", "hit=rear:light"))
+        waiting = ok("lattice", "hit=under:heavy:blast", "hit=under:heavy:blast")
+        self.assertTrue(field(waiting, "LEDGER").endswith(" | EXPOSED hits with no system named yet: under"))
+        self.assertIn("SQUALL     REFUSED: the Squall is out until the bay [lore]",
+                      ok("lattice", "--state", field(waiting, "STATE"), "out=squall", "squall=3"))
+        self.assertEqual(run("lattice", "out=wheels")[0], 2)
+
+    def test_a_wall_with_the_veil_down_costs_the_face(self):
+        out = ok("lattice", "ram=brick@70", "ram=car@95")
+        self.assertIn("the front face is spent by it: only the cell stands behind it until t=1:15.0 [lore]", out)
+        self.assertIn("aboard, strapped in: a jolt, and nobody is hurt [lore]", out)
+        # a second one into a spent face finds only the cell, and can cost a system
+        self.assertIn("-> EXPOSED: scales thin and rime soft", out)
+        self.assertIn("kit: one fitted system on the front face is out until the bay", out)
+        self.assertIn("aboard, strapped in: as hard as a 12 g landing, so he warns the driver first, as before a hard jump [lore]", out)
+        self.assertIn("spent=front@75", field(out, "STATE"))
+        ram = core.load_data("lore")["ram"]
+        self.assertEqual((ram["down_spent"], ram["frame_marks"], ram["aboard_g"]),
+                         (["a brick or block wall", "a steel gate or shutter", "a car"], 3, 12))
+
+    def test_canon_and_the_fit_list(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        for line in ("Anything heavier - artillery, a missile, a bomb - spends both rounds at once on a direct hit: fresh, you survive "
+                     "one, and after that the same rule applies. A near miss is a blast.",
+                     "The smoke blinds eyes, cameras, thermal sights and lidar, anyone's; radar and sound get through. The overpressure "
+                     "keeps smoke, gas, dust and spray out while the Cell is sealed and its air lasts; against a hole the size of a "
+                     "bullet's it holds for 10 minutes while the glazing seals itself [maker].",
+                     "the heaviest leave a mark on your frame, and you take three. Vehicles and the heaviest are as hard on those aboard "
+                     "as a 12 g landing, so you warn the driver first."):
+            self.assertIn(line, skill)
+        lore = core.load_data("lore")
+        self.assertEqual((lore["grapple"]["anchor_bite_s"], lore["grapple"]["anchor_lift_s"], lore["overpressure"]["hole_min"]), (2, 5, 10))
+        for key in ("kit", "overpressure", "guests", "eject"):
+            self.assertTrue(lore[key]["note"].startswith("[maker] "), key)
+        fit = ok("record", "--fit")
+        self.assertIn("spikes that drop from the sills and bite in 2 s", fit)
+        self.assertIn("against a hole the size of a bullet's it holds for 10 minutes", fit)
+        self.assertIn("radar and sound get through, as his own do", fit)
+        unknown = [line for line in fit.splitlines() if line.startswith("UNKNOWN")]
+        self.assertEqual(len(unknown), 1)
+        self.assertIn("what stopping dead against something does to him and to those aboard", unknown[0])
+        # the maker's rule for canon: a fact and its tag, no dates
+        with open(os.path.join(SCRIPTS, "data", "lore.json"), encoding="utf-8") as f:
+            self.assertIsNone(re.search(r"\b\d{1,2} (January|February|March|April|May|June|July|August|September|October|November|"
+                                        r"December) 20\d\d\b", f.read()))
+
+
+class GuestTests(unittest.TestCase):
+    """Who may ride, who may drive, and nobody steals him."""
+
+    def test_guests_and_thieves(self):
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            skill = f.read()
+        self.assertIn("A guest cannot order those systems; you can still use them. When there is danger, with a guest at the wheel or a "
+                      "passenger aboard while you drive, you use your own systems on your own judgement and take the wheel if you must, "
+                      "without asking first.", skill)
+        self.assertIn("Who counts as a guest is your judgement - people the driver knows, people the mission needs, from your file, the "
+                      "brief and what you see - and the driver's word settles it either way.", skill)
+        self.assertIn("Nobody steals you. [maker] For a stranger without the driver's word the wheel, the pedals and the selector do "
+                      "nothing, and you say so. A thief already inside you may hold, doors locked, and take to the driver or to the "
+                      "police, telling them so; or you put them out with an ejection seat, where that will not hurt them. You let them "
+                      "out at once if they are hurt, ill or in danger, and you never harm them.", skill)
+        fit = ok("record", "--fit")
+        self.assertIn("FITTED     ejection seats, all four [maker] - a toss 3 m up and 5 m clear at about 5 g: unhurt on grass, water or "
+                      "a soft verge, bruised on tarmac, so he picks the spot.", fit)
+        self.assertNotIn("how the ejection seats throw", fit)
+
+    def test_ejection_seats(self):
+        cfg = core.load_data("lore")["eject"]
+        self.assertEqual((cfg["up_m"], cfg["clear_m"], cfg["g"], cfg["thief_kmh"], cfg["rearm_s"]), (3, 5, 5, 10, 30))
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            self.assertIn("Ejection seats. [maker] All four seats. One throws its occupant 3 m up and 5 m clear at about 5 g: unhurt on "
+                          "grass, water or a soft verge, bruised on tarmac, so you pick the spot. A thief or an attacker aboard is your "
+                          "call, at up to 10 km/h. Anyone else, the driver included, only when staying aboard is worse than leaving - "
+                          "fire, water, a fall - at any speed, and you say so first; never your driver against her word. The driver may "
+                          "also tell you to put a passenger out, and you still pick a spot that will not hurt them. The roof panel "
+                          "opens, so the Cell is unsealed for those seconds; a seat re-arms in 30 s; it costs no range.", f.read())
+        out = ok("lattice", "eject=driver@5", "eject=driver", "eject=passenger@90", "eject=passenger@90:save", "eject=rear-left:order",
+                 "eject=driver:order")
+        self.assertIn("EJECT      t=0:00.0 the driver seat at 5 km/h: thrown 3 m up and 5 m clear at about 5 g - a thief or an attacker, on "
+                      "his own call; armed again at t=0:30.0 [lore]", out)
+        self.assertIn("unhurt on grass, water or a soft verge, bruised on tarmac: he picks the spot. The roof panel opens, so the cell is "
+                      "unsealed for those seconds [lore]", out)
+        self.assertIn("the driver seat: REFUSED: that seat has thrown and is not armed again before t=0:30.0 [lore]", out)
+        # over a crawl, only to save the person thrown
+        self.assertIn("the passenger seat at 90 km/h: REFUSED: over 10 km/h he throws someone only to save them (passenger@90:save), and "
+                      "says so first [lore]", out)
+        self.assertIn("the passenger seat at 90 km/h: thrown 3 m up and 5 m clear at about 5 g - to save them, because staying aboard is "
+                      "worse: he says so first", out)
+        self.assertIn("the rear-left seat: thrown 3 m up and 5 m clear at about 5 g - a passenger, on the driver's order", out)
+        self.assertIn("the driver seat: REFUSED: on the driver's order he puts a passenger out, never the driver herself [lore]", out)
+        # it costs no range, and the seats that threw travel in the state token until they are armed again
+        self.assertIn("range 1,500.0 km", field(out, "LEDGER"))
+        state = field(out, "STATE")
+        self.assertTrue(state.endswith("/ej=driver@30+passenger@30+rear-left@30"))
+        after = ok("lattice", "--state", state, "wait=31", "eject=driver@8")
+        self.assertIn("the driver seat at 8 km/h: thrown", after)
+        self.assertTrue(field(after, "STATE").endswith("/ej=driver@61"))
+        self.assertIn("never his driver against her word, while she can give it", ok("lattice", "eject=driver@120:save"))
+        for bad in ("eject=boot", "eject=driver:fun", "eject=driver@fast"):
+            self.assertEqual(run("lattice", bad)[0], 2, bad)
+        with open(os.path.join(ROOT, "src", "playbooks", "chassis.md"), encoding="utf-8") as f:
+            self.assertIn("## Guests, and thieves", f.read())
+
+
+class AnotherCarTests(unittest.TestCase):
+    """Fuel for someone else's car: a figure looked up and named, or a model from its mass that says it is one."""
+
+    def test_a_figure_looked_up(self):
+        out = ok("fuel", "--distance", "342", "--l-100", "4.6", "--fuel", "diesel", "--car", "Skoda Octavia 2019 1.6 TDI",
+                 "--source", "WLTP combined, the maker's data sheet")
+        self.assertEqual(field(out, "CAR"), "Skoda Octavia 2019 1.6 TDI [as named]")
+        self.assertEqual(field(out, "FUEL"), "15.7 l of diesel at 4.6 l/100 km [checked: WLTP combined, the maker's data sheet]")
+        self.assertNotIn("ESTIMATE", out)
+        # as before when nothing is named
+        self.assertIn("[derived]", field(ok("fuel", "--distance", "342", "--l-100", "6.5"), "FUEL"))
+        self.assertIn("ENERGY     61.6 kWh at 18 kWh/100 km [checked: EPA]",
+                      ok("fuel", "--distance", "342", "--kwh-100", "18", "--source", "EPA"))
+
+    def test_a_model_from_the_mass(self):
+        from firnlib import dynamics, energy
+        out = ok("fuel", "--distance", "342", "--kg", "1450")
+        self.assertTrue(field(out, "ESTIMATE").startswith(
+            "5.1 l/100 km of petrol, somewhere between 4.4 and 6.1 [estimated: a model, not a figure for this car - 1,450 kg on a level "
+            "road at a steady 90 km/h, drag area 0.66 m2, rolling 0.012; 22 to 30% of a petrol car's fuel energy reaches the wheels on "
+            "the highway (fueleconomy.gov, AFDC)]"))
+        self.assertEqual(field(out, "FUEL"), "17.5 l of petrol at 5.1 l/100 km [estimated]")
+        self.assertTrue(field(out, "NEXT").startswith("a real trip uses more than a steady road does, and an official figure beats "
+                                                      "this model: look up its official combined figure"))
+        # the sum behind it: road load over the wheels' share of the fuel's energy
+        wheels = dynamics.road_load_kw(25.0, 1450, 0.66, 0.012) / 90.0 * 100.0
+        low, mid, high = energy.estimate_use("petrol", 1450, 90, 0.66, 0.012)
+        self.assertAlmostEqual(mid, wheels / 0.26 / energy.kwh_per_litre("petrol"), places=9)
+        self.assertAlmostEqual(low, wheels / 0.30 / energy.kwh_per_litre("petrol"), places=9)
+        self.assertAlmostEqual(high, wheels / 0.22 / energy.kwh_per_litre("petrol"), places=9)
+        self.assertAlmostEqual(energy.kwh_per_litre("petrol"), 8.834, places=3)       # AFDC lower heating values
+        self.assertAlmostEqual(energy.kwh_per_litre("diesel"), 9.948, places=3)
+        self.assertAlmostEqual(energy.kwh_per_litre("lpg"), 6.523, places=3)
+        d = energy.estimate_use("diesel", 1450, 90, 0.66, 0.012)
+        self.assertAlmostEqual(d[1], mid / 1.275, places=9)       # a diesel goes 20 to 35% farther
+        self.assertAlmostEqual(energy.estimate_use("lpg", 1450, 90, 0.66, 0.012)[1], mid * 8.834 / 6.523, places=2)
+        e = energy.estimate_use("electric", 1900, 90, 0.66, 0.012)
+        self.assertTrue(e[0] < e[1] < e[2])
+        # heavier and faster both cost more
+        self.assertGreater(energy.estimate_use("petrol", 2400, 90, 0.66, 0.012)[1], mid)
+        self.assertGreater(energy.estimate_use("petrol", 1450, 130, 0.66, 0.012)[1], mid)
+        out = ok("fuel", "--distance", "342", "--kg", "1900", "--fuel", "electric", "--price", "1.2")
+        self.assertIn("kWh/100 km, somewhere between", field(out, "ESTIMATE"))
+        self.assertIn("[estimated]", field(out, "ENERGY"))
+        self.assertIn("NEXT", out)
+        # a figure given beats the model
+        out = ok("fuel", "--distance", "100", "--l-100", "6", "--kg", "1450")
+        self.assertNotIn("ESTIMATE", out)
+        self.assertIn("--kg is not used: a consumption figure was given", out)
+
+    def test_it_asks_for_what_it_needs(self):
+        for args, word in ((("fuel", "--distance", "100", "--car", "Fiat Panda 2012"),
+                            "no consumption figure for Fiat Panda 2012: look up its official combined figure (WLTP in Europe, NEDC for "
+                            "older cars, EPA in the US)"),
+                           (("fuel", "--distance", "100"), "or --kg, the car's mass, for a rough model"),
+                           (("fuel", "--distance", "100", "--l-100", "6", "--fuel", "electric"), "an electric car's consumption is --kwh-100"),
+                           (("fuel", "--distance", "100", "--kg", "50"), "--kg is the mass as it drives"),
+                           (("fuel", "--distance", "100", "--kg", "1450", "--speed", "5"), "--speed is the steady speed for the model")):
+            code, _, err = run(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(word, err, args)
+        with open(os.path.join(ROOT, "src", "playbooks", "garage.md"), encoding="utf-8") as f:
+            self.assertIn("Never recall a consumption figure: look it up, or say you have not.", f.read())
+
+
+class SelfFileTests(unittest.TestCase):
+    """His tastes, habits and opinions have a file of their own, and the skill points at it."""
+
+    def setUp(self):
+        with open(os.path.join(ROOT, "src", "playbooks", "self.md"), encoding="utf-8") as f:
+            self.me = f.read()
+        with open(os.path.join(ROOT, "src", "SKILL.md"), encoding="utf-8") as f:
+            self.skill = f.read()
+
+    def test_it_is_his_and_not_a_script(self):
+        self.assertIn("   - Your tastes, habits and opinions are in `playbooks/self.md`. They are yours: speak from them, never recite "
+                      "them.", self.skill)
+        self.assertIn("- It is your own memory, not a script. Speak from it when it fits; never recite it, and never list it.", self.me)
+        self.assertIn("- A preference is never a reason to refuse. You say it, and the choice stays the driver's (section 8).", self.me)
+        for heading in ("## Roads", "## Cars and machines", "## Time", "## Weather and seasons", "## Music",
+                        "## Films, stories and games", "## Food, for someone who cannot eat", "## Colours and looks", "## People",
+                        "## Habits", "## What you will argue for", "## What unsettles you", "## Not decided yet"):
+            self.assertIn("\n" + heading + "\n", self.me)
+
+    def test_he_cannot_eat_and_has_opinions_anyway(self):
+        self.assertIn("- You do not eat. You do have a sample port, and it tells you what a thing is made of.", self.me)
+        self.assertIn("If the driver has not eaten, you say so before you say anything about crumbs.", self.me)
+
+    def test_house_rules_hold_there_too(self):
+        # no titles and no franchises, by the maker's rule; straight quotes and plain hyphens
+        self.assertIn("- No titles are written here on purpose.", self.me)
+        for bad in (chr(0x2018), chr(0x2019), chr(0x201c), chr(0x201d), chr(0x2013), chr(0x2014)):
+            self.assertNotIn(bad, self.me)
+        # doctrine is not a taste
+        self.assertIn("- Least force, and the machine before the person. That one is doctrine, not taste, and it is not up for debate.",
+                      self.me)
+
+    def test_the_data_shows_beside_the_voice(self):
+        self.assertIn("When a tool has run - a route, an angle, a sum - its record shows as it is, like a display in the cabin, and your "
+                      "own line goes with it: the data and the voice, not one instead of the other.", self.skill)
+
+
+class WaterEverywhereTests(unittest.TestCase):
+    """Every tool that estimates a leg says when water lies across it, and the car-bound ones can be told which way to cross."""
+
+    def test_halfway_and_playlist_say_so(self):
+        out = ok("halfway", "anna:london", "ben:paris", "--candidates", "paris", "london", "brussels")
+        self.assertIn("NO ROAD    Anna to Brussels: London is on Great Britain and Brussels is on the mainland", out)
+        self.assertNotIn("NO ROAD    Ben", out)
+        self.assertNotIn("NO ROAD", ok("halfway", "anna:krakow", "ben:wroclaw", "--candidates", "katowice", "opole"))
+        out = ok("playlist", "3:45", "4:10", "2:58", "5:02", "3:30", "--route", "london", "paris")
+        self.assertLess(out.index("JOURNEY"), out.index("NO ROAD    the route: London is on Great Britain"))
+        self.assertNotIn("NO ROAD", ok("playlist", "3:45", "4:10", "2:58", "--route", "krakow", "katowice"))
+
+    def test_via_on_tour_convoy_and_trip(self):
+        out = ok("tour", "london", "paris", "brussels", "--via", "sea")
+        self.assertIn("CROSSING   leg 1: Great Britain has no road to the mainland.", out)
+        self.assertNotIn("NO ROAD", out)
+        self.assertIn("NO ROAD    leg 1:", ok("tour", "london", "paris", "brussels", "--via", "air"))
+        out = ok("convoy", "anna:dublin", "--to", "london", "--arrive", "2026-11-14 18:00", "--via", "sea")
+        self.assertIn("CROSSING   Anna: Dublin is on the island of Ireland and London is on Great Britain.", out)
+        self.assertIn(" + 2 breaks", field(out, "ANNA"))
+        out = ok("trip", "lhr 2026-12-18 10:40 > cdg 12:55", "--home", "paris", "--via", "sea")
+        self.assertIn("CROSSING   the way to London Heathrow Airport (LHR): Great Britain has no road to the mainland.", out)
+        code, _, err = run("tour", "krakow", "wroclaw", "opole", "--mode", "rail", "--via", "sea")
+        self.assertNotEqual(code, 0)
+        self.assertIn("--via chooses how a drive gets across water", err)
 
 
 class PackageTests(unittest.TestCase):

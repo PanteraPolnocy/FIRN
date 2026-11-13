@@ -207,6 +207,10 @@ def cmd_jump(a):
     rec("G-LOAD", "; ".join(parts) + " [lore: a %s s burst, %s m of travel on landing]" % (
         trim(sq["burst_s"], 2), trim(sq["landing_stroke_m"], 2)))
     worst = max(launch, land)
+    ramcfg = load_data("lore")["ram"]
+    if land > ramcfg["aboard_g"] + 1e-9:
+        more("with %d marks on his frame he does not take a landing over %d g at all, until the bay [lore]" % (
+            ramcfg["frame_marks"], ramcfg["aboard_g"]))
     if a.unmanned:
         more("nobody aboard: it matters only to what is clamped in the cradle")
     else:

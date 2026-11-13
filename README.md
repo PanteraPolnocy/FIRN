@@ -101,7 +101,7 @@ The full list, command by command, is in [docs/limits.md](docs/limits.md).
 ```
 src/                    the skill
   SKILL.md              the core: who FIRN is, doctrine, rules, the job index
-  playbooks/            the method for each job
+  playbooks/            the method for each job, and self.md: his tastes, habits and opinions
   scripts/firn.py       the toolkit's entry point
   scripts/firnlib/      one module per group of commands
   scripts/data/         the gazetteer (places.db), zones, lore, rule sets, tables, the command index,

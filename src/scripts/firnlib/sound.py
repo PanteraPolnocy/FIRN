@@ -298,11 +298,13 @@ def cmd_playlist(a):
     dep = arr = None
     basis = "as given"
     target = None
+    water = None
     if a.route:
         from . import geo
         p1, p2 = geo.parse_point(a.route[0]), geo.parse_point(a.route[1])
         _, km, hours, tag, _ = geo.estimate_leg(p1, p2, a.mode)
         target = hours * 3600.0
+        water = (p1, p2, a.mode, tag, "the route")
         basis = "%s to %s, %s%s km %s [%s]" % (p1[0], p2[0], "~" if tag == "estimate" else "", num(km),
                                               "by " + a.mode if a.mode != "car" else "by road", tag)
     if a.length:
@@ -333,6 +335,9 @@ def cmd_playlist(a):
     if not 60 <= target <= 24 * 3600:
         die("a journey between a minute and a day, please")
     rec("JOURNEY", "%s to fill (%s)" % (fmt_dur(target), basis))
+    if water:
+        from . import geo
+        geo.say_land(*water)
 
     def find(name, what):
         want = fold(name)

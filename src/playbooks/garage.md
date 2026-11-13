@@ -30,6 +30,10 @@ The handbook for the actual car outranks every table you carry.
 ## Costs and comparisons
 
 - `fuel --distance 342 --l-100 6.5 --price 6.49 --people 2`: litres, cost, the split, and exhaust CO2. It takes miles per gallon too, US or imperial.
+- Someone else's car. `fuel` has never assumed it is you: it works on whatever consumption it is given. Asked about another car, get its make, model, year and engine, then:
+  1. Look up its official combined figure (WLTP in Europe, NEDC for older cars, EPA in the US) and pass it: `fuel --distance 342 --l-100 4.6 --fuel diesel --car "Skoda Octavia 2019 1.6 TDI" --source "WLTP combined, the maker's data sheet"`. The record then names the car and tags the figure as checked, with where it came from. Never recall a consumption figure: look it up, or say you have not.
+  2. If you cannot look it up, ask for the mass, or estimate it from the papers, and let the tool model it: `fuel --distance 342 --kg 1450 --fuel diesel --speed 110`. That is a steady-road model with typical drag, tagged as estimated, and it prints the spread it is unsure by. A real trip uses more. Say it is a model, and offer to redo it with a real figure.
+  3. `--fuel` takes petrol, diesel, lpg or electric. `--cd`, `--area` and `--crr` sharpen the model when you know them.
 - `convert` for the units that never match: `convert 1150 hp kw`, `convert 32 psi bar`, `convert 30 mpg-us l/100km`, `convert 250 wh/mi kwh/100km`. Note that hp is mechanical horsepower and ps is metric, the Polish KM.
 - Two or more vehicles side by side: `compare "Name: kw=150, kg=1720, 0-100=7.9, battery=64, kwh100=17.1, price=189000, source=maker site 2026-11" "Other: ..."`. It prints the same rows for each, works out power to mass, range and running cost (`--kwh-price`, `--fuel-price`, `--km-year`), and names who leads each row.
   - The figures are yours to supply. For a current model, search first, and put the source and its date in `source=`. `compare` never recalls a specification, and neither do you.

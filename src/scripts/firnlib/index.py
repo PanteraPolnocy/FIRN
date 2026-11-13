@@ -43,7 +43,7 @@ ALSO = {
     "weather": "forecast ice icy slippery fog wind rain temperature frost black",
     "range": "veil budget lore capacitor how far",
     "ev": "electric battery charge charging charger kwh how far",
-    "fuel": "petrol diesel gas cost litres mpg consumption co2 split share",
+    "fuel": "petrol diesel gas cost litres mpg consumption co2 split share someone else's car another make model year mass estimate",
     "perf": "acceleration horsepower top speed quarter mile",
     "stop": "braking brake distance following gap tailgate",
     "impact": "crash collision energy",

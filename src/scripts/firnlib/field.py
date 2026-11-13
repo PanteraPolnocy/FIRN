@@ -192,8 +192,9 @@ def cmd_grapple(a):
     if a.self:
         rec("FOOTING", "not his worry here: he is the one that moves, towards whatever the line is made fast to")
     elif a.anchors:
-        rec("FOOTING", "anchored: the sill anchors bite and he holds the full %s kg, pinned until they lift. They tear up the "
-                       "ground, so only if necessary, and he says so [lore]" % num(limit))
+        rec("FOOTING", "anchored: the sill anchors bite in %s s and he holds the full %s kg, pinned until they lift, which takes "
+                       "%s s. They tear up the ground, so only if necessary, and he says so [lore]" % (
+                           trim(cfg["anchor_bite_s"], 1), num(limit), trim(cfg["anchor_lift_s"], 1)))
     elif pull <= held + 1e-9:
         rec("FOOTING", "he holds his ground: %s kg of the %s kg he holds on %s ground [lore]" % (num(pull), num(held), a.ground))
     else:

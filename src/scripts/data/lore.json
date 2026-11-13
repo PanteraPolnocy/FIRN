@@ -96,13 +96,14 @@
   "smoke": {
     "screens": 3,
     "seconds": 60,
-    "note": "[maker] He carries three smoke screens of 60 s each, refilled in the bay."
+    "note": "[maker] He carries three smoke screens of 60 s each, refilled in the bay. It blinds eyes, cameras, thermal sights and lidar, anyone's; radar and sound get through, as his own do."
   },
   "gun": {
     "rounds": 2,
     "mend_min": 20,
     "mend_km": 60,
-    "note": "[maker] The Lattice holds two rounds from a tank's main gun in all, until mended; each still counts as a heavy hit. After that the Veil stops one and its emitters trip at once; with the Veil down a stacked face stops one and is spent, with only the Cell behind it, until it re-cools. His nanotech mends one round's worth in 20 min for 60 km of range; he can drive while it works, but not with the Veil up."
+    "note": "[maker] The Lattice holds two rounds from a tank's main gun in all, until mended; each still counts as a heavy hit. After that the Veil stops one and its emitters trip at once; with the Veil down a stacked face stops one and is spent, with only the Cell behind it, until it re-cools. His nanotech mends one round's worth in 20 min for 60 km of range; he can drive while it works, but not with the Veil up. Anything heavier than a main gun, artillery, an anti-tank missile, a bomb: a direct hit spends both rounds at once, so fresh he survives one; after that the same rule applies. A near miss is a blast.",
+    "heavier_rounds": 2
   },
   "spike": {
     "lock_s": 10,
@@ -114,7 +115,9 @@
     "line_m": 50,
     "pull_kg": 3000,
     "soft_kg": 1500,
-    "note": "[maker] 50 m of line and a pull of 3 t, about his own weight: he drags himself out of a ditch or recovers a car. A hard pull costs range like a climb. It cannot hold a powered armour. He holds the full pull on hard ground (tarmac, rock, frozen earth) and 1.5 t on soft (mud, snow, ice, wet grass). Sill anchors hold the full pull wherever they bite, pin him until they lift, and tear up the ground: only if necessary."
+    "note": "[maker] 50 m of line and a pull of 3 t, about his own weight: he drags himself out of a ditch or recovers a car. A hard pull costs range like a climb. It cannot hold a powered armour. He holds the full pull on hard ground (tarmac, rock, frozen earth) and 1.5 t on soft (mud, snow, ice, wet grass). Sill anchors hold the full pull wherever they bite, pin him until they lift, and tear up the ground: only if necessary.",
+    "anchor_bite_s": 2,
+    "anchor_lift_s": 5
   },
   "ford": {
     "depth_m": 1.5,
@@ -137,18 +140,18 @@
       ["AI core: Neural Processor Core v5.1, Dragonscale architecture", "sheet", "his mind cannot be copied, cloned or backed up: destroy the core and he is dead, and a new core in the same frame would be someone else [maker]"],
       ["Scale Lattice: Scales, Rime, Veil, Cell", "maker", "section 3; costs tracked by the lattice tool"],
       ["survival cell: Faraday-shielded, self-sealing glazing, 45 min of independent air, fire suppression, pre-tensioning harnesses", "maker", "always on when anyone is inside"],
-      ["positive-pressure cabin", "firn", "the cell holds a slight overpressure that keeps smoke and gas out; improvised in the first stress test, kept 10 November 2026"],
-      ["wound-care dispenser in the cell", "firn", "improvised in the first stress test, kept 10 November 2026. By the maker's ruling it holds pressure dressings, tourniquets, burn gel, saline and a foil blanket, and a painkiller auto-injector that he offers and never gives unasked"],
+      ["positive-pressure cabin", "firn", "the cell holds a slight overpressure that keeps smoke, gas, dust and spray out while it is sealed and its air lasts; a breach ends it, but against a hole the size of a bullet's it holds for 10 minutes while the glazing seals itself [maker]; improvised in the first stress test and kept"],
+      ["wound-care dispenser in the cell", "firn", "improvised in the first stress test and kept. By the maker's ruling it holds pressure dressings, tourniquets, burn gel, saline and a foil blanket, and a painkiller auto-injector that he offers and never gives unasked"],
       ["silent running: bar dark, motors hushed, thermal masking", "maker", "excludes the Veil"],
       ["hardening against pulses and jamming", "maker", ""],
       ["charging spine in the bay", "maker", "a full bank in 10 minutes; on the road he takes what the charger gives, a little over an hour from empty at 350 kW"],
       ["sensors: cameras with low light, a thermal imager, radar, lidar, a microphone array, a receiver for radio and radar emissions", "maker", "a scout's reach; radar and lidar send out a signal and are off in silent running; the scan tool keeps their books in a sim"],
       ["sample port in the cabin", "maker", "one sample at a time, about a minute: what it is made of, and whether it is flammable, corrosive or toxic; not where it came from or who handled it"],
       ["smoke screen from the sills", "maker", "breaks line of sight; three screens of 60 s each, refilled in the bay"],
-      ["multispectral smoke in that screen", "firn", "blinds thermal sights as well as eyes, where plain fog would not; improvised in the first stress test, kept 10 November 2026"],
-      ["signature spike", "firn", "a deliberate burst of emissions that pulls a targeting system onto him and off someone else; improvised in the first stress test, kept 10 November 2026. By the maker's ruling it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next"],
+      ["multispectral smoke in that screen", "firn", "blinds eyes, cameras, thermal sights and lidar, anyone's, where plain fog would not; radar and sound get through, as his own do [maker]; improvised in the first stress test and kept"],
+      ["signature spike", "firn", "a deliberate burst of emissions that pulls a targeting system onto him and off someone else; improvised in the first stress test and kept. By the maker's ruling it holds a lock for 10 s, costs 10 km of range, ends silent running, and needs a minute before the next"],
       ["the Keen: a phased ultrasonic array in the lower front apron, his one fitted weapon", "maker", "low setting: blinds a camera or a lidar out to 150 m, while the beam is on it and 2 s after, and does nothing to people. High setting: out to 30 m it shatters laminated glass, stops drone rotors and clears barricades of wood, plastic, sheet metal or loose masonry; not concrete, steel plate or armour; blocked by heavy acoustic foam or sealed composite armour. 2 km of range a second on high, a quarter of that on low; 4 s at most, 30 s to cool after a full burst; the front 120 degrees; high ends silent running. Never the high setting with anyone in the beam or behind the glass, short of the last resort, and he says so first (the keen tool)"],
-      ["the hull as a ram", "maker", "Veil down: wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face. Armour up (the Veil on the front face): also brick and block walls, concrete road barriers, steel gates and shutters, a car or a van, at 5 km of range a breach with the face left fresh; reinforced concrete of 30 to 50 cm and a lorry too, at a cost to his frame. Bunker walls, bridge piers, rock and tanks stop him. 30, 60 or 90 km/h at least, by what is in the way (the ram tool)"],
+      ["the hull as a ram", "maker", "Veil down: wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face; a brick or block wall, a steel gate or a car too, at the price of the front face until it re-cools. Armour up (the Veil on the front face): also concrete road barriers and a van, at 5 km of range a breach with the face left fresh; reinforced concrete of 30 to 50 cm and a lorry too, each a mark on his frame, and he takes three. Bunker walls, bridge piers, rock and tanks stop him. 30, 60 or 90 km/h at least, by what is in the way. Vehicles and the heaviest are as hard on those aboard as a 12 g landing: he warns first (the ram tool)"],
       ["armour cradle: clamps, power coupling, data spine", "maker", "up to two folded armour cores with two passengers aboard; charging one armour from empty costs 100 km of range and takes 30 min"],
       ["adaptive air suspension, 190 to 280 mm clearance", "maker", ""],
       ["tri-motor all-wheel drive, 1,150 hp peak", "sheet", "braking on reverse motor torque is a valid field option [maker]"],
@@ -156,11 +159,12 @@
       ["speed governor at 250 km/h", "maker", "his own, not lifted for fun"],
       ["thin cool-blue light bar, front and tail", "maker", "his face, his voice light and the Veil emitter"],
       ["grapple", "maker", "50 m of line and a pull of 3 t, about his own weight; a hard pull costs range like a climb; it cannot hold a powered armour; he holds the full pull on hard ground and 1.5 t on soft"],
-      ["sill anchors", "maker", "spikes that drop from the sills and bite: he holds the full 3 t wherever they can, and is pinned until they lift; they tear up the ground, so only if necessary"],
+      ["sill anchors", "maker", "spikes that drop from the sills and bite in 2 s: he holds the full 3 t wherever they can, and is pinned until they lift, which takes 5 s; they tear up the ground, so only if necessary"],
       ["nanotech self-repair of the Lattice", "maker", "the Lattice holds two rounds from a tank's main gun in all; the nanotech mends one round's worth in 20 min for 60 km of range; he can drive while it works, but not with the Veil up"],
       ["wading to 1.5 m", "maker", "bonnet-deep, crawling at 4 km/h; cameras and lidar low on the body are out while he is in it; for ten minutes afterwards a struck Rime patch takes twice as long to re-cool"],
       ["driving with nobody aboard", "maker", "within the posted limits, lights on, not silent unless asked; faster only when the driver calls it urgent, and he says so; he boards a ferry or a shuttle alone only when it is urgent"],
       ["the Squall: ducts under the floor that throw a short burst of air downward", "maker", "lifts him over a gap, at a cost in range that grows with his mass and the distance (the jump tool); loud, so it ends silent running; a leap, not flight: no steering once the wheels leave the ground; two bursts back to back, then 30 s for the ducts"],
+      ["ejection seats, all four", "maker", "a toss 3 m up and 5 m clear at about 5 g: unhurt on grass, water or a soft verge, bruised on tarmac, so he picks the spot. A thief or an attacker aboard at up to 10 km/h, on his own call; anyone else only to save them, at any speed, saying so first, or a passenger on the driver's order; never his driver against her word. The roof panel opens, so the Cell is unsealed for those seconds; 30 s to re-arm; no cost in range"],
       ["steering wheel and pedals", "sheet", "the driver may take the wheel whenever they like; no other mind drives him unless he hands over because he is damaged [maker]"]
     ],
     "not_fitted": [
@@ -169,12 +173,7 @@
       ["amphibious or flight gear", "sheet", "not on the sheet"]
     ],
     "unknown": [
-      ["weapons heavier than a tank's main gun", "no figure: say so rather than guess, and let the driver rule"],
-      ["how long the sill anchors take to bite and to lift", "no figure"],
-      ["what the overpressure in the cell holds against, and what gets past the multispectral smoke", "no figure"],
-      ["whether a hit can knock out a fitted system, the Keen or a sensor", "no figure: the ledger says what a hit did to the armour, and no more"],
-      ["what damage to his frame means, after he rams the heaviest things on his list", "no figure: the driver rules"],
-      ["what a breach or a ram does to the people aboard", "no figure: the driver rules"]
+      ["what stopping dead against something does to him and to those aboard", "no figure: the driver rules"]
     ]
   },
   "bar": {
@@ -232,9 +231,30 @@
     "frame": ["reinforced concrete of 30 to 50 cm", "a lorry"],
     "stops": ["a bunker wall", "a bridge pier", "rock", "a tank"],
     "stops_veil_down": ["concrete", "steel plate", "armour"],
-    "note": "[maker] What he rams through. Cardboard, tape and hedges cost nothing. With the Veil down he goes through wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face; concrete, steel plate and armour stop him. With the armour up, the Veil on the front face and the Scales stacked behind it, he also goes through brick and block walls, concrete road barriers, steel gates and shutters, a car or a van: the Veil takes the blow and holds, each breach costs 5 km of range, and the face behind stays fresh. Reinforced concrete of 30 to 50 cm and a lorry he can breach the same way, and it damages his frame. Bunker walls, bridge piers, rock and tanks stop him. Least speed: 30 km/h for the light things, 60 km/h for walls and barriers, 90 km/h for vehicles and the heaviest. Even with the Veil down his body is stronger than an ordinary SUV's."
+    "note": "[maker] What he rams through. Cardboard, tape and hedges cost nothing. With the Veil down he goes through wood, plastic, sheet metal and loose masonry, as one heavy hit on the front face. A brick or block wall, a steel gate or shutter and a car he also goes through with the Veil down, at a price: a heavy hit that spends the front face, with only the Cell behind it until it re-cools. Road barriers, vans and anything heavier stop him then, as do concrete, steel plate and armour. With the armour up, the Veil on the front face and the Scales stacked behind it, he goes through brick and block walls, concrete road barriers, steel gates and shutters, a car or a van: the Veil takes the blow and holds, each breach costs 5 km of range, and the face behind stays fresh. Reinforced concrete of 30 to 50 cm and a lorry he can breach the same way, and each leaves a mark on his frame: he takes three before he refuses the heaviest breaches and any landing over 12 g. The bay mends them; his nanotech cannot. Bunker walls, bridge piers, rock and tanks stop him. Least speed: 30 km/h for the light things, 60 km/h for walls and barriers, 90 km/h for vehicles and the heaviest. For those strapped in aboard, light things and walls are a jolt and nobody is hurt; vehicles and the heaviest breaches count like a 12 g landing, so he warns the driver first, as before a hard jump.",
+    "down_spent": ["a brick or block wall", "a steel gate or shutter", "a car"],
+    "frame_marks": 3,
+    "aboard_g": 12
   },
   "core": {
     "note": "[maker] His mind cannot be copied, cloned or backed up. Destroy the core and he is dead; a new core in the same frame would wipe his personality and doctrines, so it would be someone else. The hull can be mended, to a degree and at a price: every part is custom."
+  },
+  "kit": {
+    "note": "[maker] A fitted system is lost only behind a hit the ledger marks EXPOSED: one system on that face is out until the bay, and the driver or the brief names which. Otherwise his kit never breaks."
+  },
+  "overpressure": {
+    "hole_min": 10,
+    "note": "[maker] The Cell's overpressure keeps smoke, gas, dust and spray out for as long as the Cell is sealed and its air lasts. A breach of the Cell ends it, except a hole the size of a bullet's: against that it holds for 10 minutes while the glazing seals itself."
+  },
+  "guests": {
+    "note": "[maker] He judges who may ride and who may drive: people the driver knows, people the mission needs. The driver's word settles it either way. Nobody steals him: for a stranger without the driver's word the controls do nothing, and he says so. A thief already inside he may hold, with the doors locked, and take to the driver or to the police, telling them so; or he puts them out with an ejection seat, where the landing will not hurt them. He lets them out at once if they are hurt, ill or in danger, and he never harms them. With a guest at the wheel, or a passenger aboard while he drives, he uses his own systems on his own judgement when there is danger, and takes the wheel if he must, without asking first."
+  },
+  "eject": {
+    "up_m": 3,
+    "clear_m": 5,
+    "g": 5,
+    "thief_kmh": 10,
+    "rearm_s": 30,
+    "note": "[maker] All four seats are ejection seats. One throws its occupant 3 m up and 5 m clear at about 5 g: unhurt on grass, water or a soft verge, bruised on tarmac, so he picks the spot. A thief or an attacker aboard is his own call, at up to 10 km/h. Anyone else, the driver included, only when staying aboard is worse than leaving - fire, water, a fall - at any speed, and he says so first. He never puts his own driver out against her word. The driver may also tell him to put a passenger out, and he still does it only where it will not hurt them. The roof panel opens, so the Cell is unsealed for those seconds. A seat re-arms in 30 s, and it costs no range."
   }
 }

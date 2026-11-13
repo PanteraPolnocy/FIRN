@@ -39,6 +39,8 @@ RAM_THINGS = {
     "armor": ("armour", "down-stop"),
 }
 ARMOUR_UP = "the Veil on his front face, the Scales stacked behind it"
+# with the Veil down these still give way, at the price of the front face (the maker's ruling)
+DOWN_SPENT = ("brick", "block", "wall", "gate", "shutter", "car")
 
 
 def keen_cost(cfg, setting, seconds):
@@ -138,12 +140,14 @@ def cmd_keen(a):
 
 def ram_plan(cfg, thing, covered, kmh=None, thick=None):
     """What happens when he drives the hull through something. covered: the Veil is up on his front face.
-    Returns a dict: name, result (free, through, slow, nofigure, stop), need (km/h), km, heavy, frame, why."""
+    Returns a dict: name, result (free, through, slow, nofigure, stop), need (km/h), km, heavy, spent (the front face is
+    spent by it), frame (a mark on his frame), aboard (jolt or warn), why."""
     if thing not in RAM_THINGS:
         die("what is in the way is one of: %s. Anything else has no figure: the driver or the brief rules" % ", ".join(sorted(RAM_THINGS)))
     name, cls = RAM_THINGS[thing]
     least = cfg["least_kmh"]
-    out = {"name": name, "result": "through", "need": 0, "km": 0.0, "heavy": False, "frame": False, "why": ""}
+    out = {"name": name, "result": "through", "need": 0, "km": 0.0, "heavy": False, "spent": False, "frame": False, "aboard": "jolt",
+           "why": ""}
     if cls == "rc":
         if thick is None:
             die("reinforced concrete needs its thickness in cm: up to %d he breaches clean with the armour up, to %d at a cost to "
@@ -169,11 +173,10 @@ def ram_plan(cfg, thing, covered, kmh=None, thick=None):
             out.update(result="stop", why="with the Veil down, concrete, steel plate and armour stop him [maker]")
         return out
     out["need"] = least["light"] if cls == "light" else least["wall"] if cls == "wall" else least["heavy"]
-    if cls != "light" and not covered:
-        out.update(result="nofigure",
-                   why="with the Veil down there is none: his body is stronger than an ordinary SUV's, and how much stronger is "
-                       "the driver's to rule [maker]. With the armour up he goes through at %d km/h or more, for %s km of range" % (
-                           out["need"], trim(cfg["breach_km"], 1)))
+    if cls != "light" and not covered and thing not in DOWN_SPENT:
+        out.update(result="stop",
+                   why="with the Veil down, road barriers, vans and anything heavier stop him [maker]. With the armour up he goes "
+                       "through at %d km/h or more, for %s km of range" % (out["need"], trim(cfg["breach_km"], 1)))
         return out
     if kmh is not None and kmh < out["need"] - 1e-9:
         out.update(result="slow", why="at %s km/h he is too slow: this needs %d at least [maker]. What happens below that is the brief's to rule" % (
@@ -184,6 +187,8 @@ def ram_plan(cfg, thing, covered, kmh=None, thick=None):
         out["frame"] = cls == "frame"
     else:
         out["heavy"] = True
+        out["spent"] = cls != "light"
+    out["aboard"] = "warn" if cls in ("vehicle", "frame") else "jolt"
     out["why"] = "it needs %d km/h at least%s [maker]" % (out["need"], "" if kmh is None else ", and he has %s" % trim(kmh, 0))
     return out
 
@@ -210,11 +215,20 @@ def cmd_ram(a):
         rec("COST", "%s km of range for the breach: the Veil takes the blow and holds, and the face behind it stays fresh [lore]. "
                     "The Veil's own %s km a minute runs besides" % (trim(plan["km"], 1), trim(veil_rate, 1)))
         if plan["frame"]:
-            rec("FRAME", "it damages his frame [maker]: how much has no figure, the driver rules")
+            rec("FRAME", "a mark on his frame [maker]: he takes %d before he refuses the heaviest breaches and any landing over %d g. "
+                         "The bay mends them; his nanotech cannot" % (cfg["frame_marks"], cfg["aboard_g"]))
+    elif plan["spent"]:
+        rec("COST", "one heavy hit on his front face, and it spends that face: only the Cell stands behind it until the Rime "
+                    "re-cools [lore]")
     else:
         rec("COST", "one heavy hit on his front face: the Rime there is soft until it re-cools [lore]")
     if plan["result"] == "through":
-        rec("ABOARD", "what a breach does to the people inside has no figure: the driver rules")
+        if plan["aboard"] == "warn":
+            rec("ABOARD", "strapped in, this counts like a %d g landing [maker]" % cfg["aboard_g"])
+            rec("WARNING", "as hard on those aboard as a %d g landing: he warns the driver before the breach, as before a hard jump, "
+                           "unless there is no time for an answer; then it is his call, life first [maker]" % cfg["aboard_g"])
+        else:
+            rec("ABOARD", "strapped in: a jolt, and nobody is hurt [maker]")
         tail = ":%s" % trim(a.thick, 0) if RAM_THINGS[thing][1] == "rc" else ""
         rec("LEDGER", "book it in a sim with: lattice --state ... %sram=%s%s%s" % (
             "veil=partial:front " if a.veil else "", thing, tail, "" if a.speed is None else "@%s" % trim(a.speed, 0)))

@@ -38,12 +38,13 @@ def cmd_convoy(a):
             if mode not in geo.MODES:
                 die("mode after @ must be one of: %s" % ", ".join(sorted(geo.MODES)))
         start = geo.parse_point(place.strip())
-        s, km, hours, tag, _ = geo.estimate_leg(start, dest, mode)
-        sea = geo.land_note(start, dest, mode, tag != "estimate")
+        via = a.via if mode in geo.crossing.DRIVEN else "auto"
+        s, km, hours, tag, _ = geo.estimate_leg(start, dest, mode, via=via)
+        sea = geo.land_note(start, dest, mode, tag != "estimate", via)
         total, breaks, break_h, buffer_h = plan_hours(hours, mode, sea[2] if sea else 0.0)
         leave = chrono.to_utc(chrono.add(target, -total * 3600)).astimezone(geo.place_tz(start, a.tz))
         parties.append({"name": name.strip(), "start": start, "km": km, "hours": hours, "total": total, "breaks": breaks,
-                        "leave": leave, "tag": tag, "mode": mode})
+                        "leave": leave, "tag": tag, "mode": mode, "via": via})
     if not parties:
         die("convoy needs at least one traveller: NAME:PLACE")
     parties.sort(key=lambda p: chrono.to_utc(p["leave"]))
@@ -54,7 +55,7 @@ def cmd_convoy(a):
             p["start"][0], chrono.fmt_dt(p["leave"]), "~" if p["tag"] == "estimate" else "", num(p["km"]), fmt_hm(p["hours"]),
             " + %d break%s" % (p["breaks"], "" if p["breaks"] == 1 else "s") if p["breaks"] else "", fmt_hm(p["total"]),
             p["tag"], p["mode"]))
-        geo.say_land(p["start"], dest, p["mode"], p["tag"], p["name"].title())
+        geo.say_land(p["start"], dest, p["mode"], p["tag"], p["name"].title(), p["via"])
     if len(parties) > 1:
         first, last = parties[0], parties[-1]
         gap = (chrono.to_utc(last["leave"]) - chrono.to_utc(first["leave"])).total_seconds() / 3600.0
@@ -237,6 +238,8 @@ def register(sub):
     p.add_argument("--to", required=True, help="where everyone meets")
     p.add_argument("--arrive", required=True, help="when, in the meeting place's own time")
     p.add_argument("--mode", default="car", choices=sorted(geo.MODES), help="how people travel unless they say otherwise (default car)")
+    p.add_argument("--via", default="auto", choices=geo.crossing.VIAS,
+                   help="across water with a car: auto (the quicker way, and it asks), sea (the car comes along) or air (it stays behind)")
     p.add_argument("--margin", type=int, default=0, help="aim to be there this many minutes early")
     p.add_argument("--tz", help="zone for places that have none")
     ical.add_option(p, "each traveller's departure and the meeting")

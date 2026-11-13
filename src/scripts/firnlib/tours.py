@@ -12,14 +12,14 @@ from .core import command, die, fmt_hm, more, num, rec, trim
 MAX_STOPS = 12
 
 
-def leg_matrix(pts, mode):
+def leg_matrix(pts, mode, via="auto"):
     """cost[i][j] = (hours, km, tag) for every ordered pair of points."""
     n = len(pts)
     cost = [[None] * n for _ in range(n)]
     for i in range(n):
         for j in range(n):
             if i != j:
-                _, km, hours, tag, _ = geo.estimate_leg(pts[i], pts[j], mode)
+                _, km, hours, tag, _ = geo.estimate_leg(pts[i], pts[j], mode, via=via)
                 cost[i][j] = (hours, km, tag)
     return cost
 
@@ -85,7 +85,9 @@ def cmd_tour(a):
         die("up to %d stops: every order is weighed, and that grows fast" % MAX_STOPS)
     if a.stop_min < 0:
         die("--stop-min cannot be negative")
-    cost = leg_matrix(pts, a.mode)
+    if a.via != "auto" and a.mode not in geo.crossing.DRIVEN:
+        die("--via chooses how a drive gets across water: it goes with car, motorway or city mode")
+    cost = leg_matrix(pts, a.mode, a.via)
     order = list(range(n)) + ([0] if a.loop else []) if a.keep_order else best_order(cost, n, a.loop, end)
     given = list(range(n)) + ([0] if a.loop else [])
     if end is not None and not a.keep_order:
@@ -113,7 +115,7 @@ def cmd_tour(a):
             if k < len(order) - 1:
                 clock = chrono.add(clock, a.stop_min * 60)
         rec("LEG %d" % k, line)
-        geo.say_land(pts[x], pts[y], a.mode, tag, "leg %d" % k)
+        geo.say_land(pts[x], pts[y], a.mode, tag, "leg %d" % k, a.via)
     visits = max(0, len(order) - 2)
     stop_h = visits * a.stop_min / 60.0
     rec("TOTAL", "%s%s km, %s on the move%s = %s [%s]" % (
@@ -193,16 +195,21 @@ def cmd_halfway(a):
                 times.append(0.0)
             else:
                 times.append(geo.estimate_leg(pt, c, mode)[2])
-        rows.append((max(times), sum(times), c[0], times))
+        rows.append((max(times), sum(times), c[0], times, c))
     rows.sort(key=lambda r: (round(r[0], 4), round(r[1], 4), r[2]))
     among = "" if a.candidates else " between them (%s)" % (
         "every town" if a.min_pop == 0 else "towns of %s people or more; --min-pop changes that" % num(a.min_pop))
     rec("HALFWAY", "%d travellers, %d place%s weighed%s | fairest first [estimate]" % (
         len(people), len(rows), "" if len(rows) == 1 else "s", among))
-    for n, (worst, total, name, times) in enumerate(rows[:a.top], 1):
+    for n, (worst, total, name, times, _) in enumerate(rows[:a.top], 1):
         who = people[times.index(worst)][0]
         rec(str(n), "%s | longest %s (%s) | all together %s | %s" % (
             name, fmt_hm(worst), who, fmt_hm(total), ", ".join("%s %s" % (p[0], fmt_hm(t)) for p, t in zip(people, times))))
+    # water between a traveller and the fairest place is said, as route says it
+    best = rows[0][4]
+    for who, pt, mode in people:
+        if abs(pt[1] - best[1]) > 1e-9 or abs(pt[2] - best[2]) > 1e-9:
+            geo.say_land(pt, best, mode, geo.estimate_leg(pt, best, mode)[3], "%s to %s" % (who.title(), best[0]))
     quick = min(rows, key=lambda r: (round(r[1], 4), round(r[0], 4)))
     if quick[2] != rows[0][2]:
         rec("LEAST", "%s has the least travel in all, %s, but its longest trip is %s" % (quick[2], fmt_hm(quick[1]), fmt_hm(quick[0])))
@@ -218,6 +225,8 @@ def register(sub):
     p.add_argument("--loop", action="store_true", help="come back to the start")
     p.add_argument("--end", help="finish here (one of the stops, or another place)")
     p.add_argument("--mode", default="car", choices=sorted(geo.MODES), help="how you travel (default car)")
+    p.add_argument("--via", default="auto", choices=geo.crossing.VIAS,
+                   help="across water with a car: auto (the quicker way, and it asks), sea (the car comes along) or air (it stays behind)")
     p.add_argument("--depart", help="when you set off, to get a time at each stop")
     p.add_argument("--stop-min", type=int, default=10, help="minutes spent at each stop (default 10)")
     p.add_argument("--keep-order", action="store_true", help="do not reorder: just add it up as given")
